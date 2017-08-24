@@ -1,0 +1,9 @@
+[submodule "dep/marginPhase"]
+	path = dep/marginPhase
+	url = https://github.com/benedictpaten/marginPhase
+[submodule "dep/samtools"]
+	path = dep/samtools
+	url = https://github.com/samtools/samtools.git
+[submodule "dep/htslib"]
+	path = dep/htslib
+	url = https://github.com/samtools/htslib.git
