@@ -57,9 +57,9 @@ class pileUpCreator:
         :return:
         '''
         reference = self.refFile.fetch(region, start, end)
-        print("OK")
         dict = {}
-        for pileupcolumn in self.samFile.pileup(region, start, end, truncate=True):
+        region_bam = "chr" + region
+        for pileupcolumn in self.samFile.pileup(region_bam, start, end, truncate=True):
             pBitArray = bitarray()
             ref_base = str(reference[pileupcolumn.pos - start]).upper()
             encodedString = ''
