@@ -115,17 +115,6 @@ class pileUpCreator:
             pBitArray.encode(pileupEncoder.encoding, encodedString)
             sharedArray[pileupcolumn.pos-baseStart] = pBitArray
 
-    def generatePileupBasedOnVCF(self, region, start, end):
-        vcf_in = VariantFile(self.vcfFile)
-        recordList = []
-        for rec in vcf_in.fetch():
-            if rec.pos < start:
-                continue
-            recordList.append(rec)
-            if rec.pos > end:
-                break
-        return recordList
-
     def closeSamFile(self):
         '''
         Closes the samfile.
@@ -198,20 +187,20 @@ def saveBitmapImage(name, bitMapArray):
     plt.imsave(name, np.array(bitMapArray.T), cmap=cm.gray)
 
 def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
-    p = pileUpCreator(bamFile, refFile, vcfFile)
-    recList = p.generatePileupBasedOnVCF(region, start, end)
-    for rec in recList:
+    vcf_in = VariantFile(vcfFile)
+    for rec in vcf_in.fetch():
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
-        filename = output_dir + rec.chrom + "-" + str(rec.pos)
-        sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
-        bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        saveBitmapImage(filename+".bmp", bitmapArray)
-        print(rec, start+1, end, filename)
+        print(reg, start, end)
+        #filename = output_dir + rec.chrom + "-" + str(rec.pos)
+        #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
+        #bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
+        #saveBitmapImage(filename+".bmp", bitmapArray)
+        #print(rec, start+1, end, filename)
 
-        if matrix_out:
-            printBitmapArray(bitmapArray, filename+".txt")
+        #if matrix_out:
+            #printBitmapArray(bitmapArray, filename+".txt")
 
 
 
