@@ -189,16 +189,26 @@ def saveBitmapImage(name, bitMapArray):
 
 def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
+    cnt = 0
+    start = time.time()
     for rec in vcf_in.fetch():
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
         print(reg, start, end)
         #--LINEAR--#
+        filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
         sd = p.generatePileupLinear(reg, start, end)
         bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        #--LINEAR--#
+        saveBitmapImage(filename + ".bmp", bitmapArray)
+        cnt += 1
+        if cnt % 10 == 0:
+            end = time.time()
+            print(str(cnt) + " Records done")
+            print("TIME elapsed"+ str(end - start))
+        #print(rec, start+1, end, filename)
+        #--LINEAR END--#
         # filename = output_dir + rec.chrom + "-" + str(rec.pos)
         #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
         #bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
