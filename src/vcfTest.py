@@ -11,4 +11,4 @@ def generatePileupBasedOnVCF(vcfFile):
     return recordList
 
 
-generatePileupBasedOnVCF("../../../../Downloads/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.vcf")
+generatePileupBasedOnVCF("/hive/users/kishwar/GRCh37.vcf")
