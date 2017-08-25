@@ -204,7 +204,8 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         # --LINEAR--#
         #sd = p.generatePileupLinear(reg, start, end)
         # --LINEAR END--#
-        sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
+        bam_reg = "chr" + str(reg)
+        sd = generatePileupDictionary(bam_reg, start, end, bamFile, refFile)
         bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
         saveBitmapImage(filename + ".bmp", bitmapArray)
         cnt += 1
