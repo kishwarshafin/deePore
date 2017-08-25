@@ -198,7 +198,7 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
-        #print(reg, start, end)
+        print(reg, start, end)
 
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
