@@ -214,7 +214,7 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
-        print(reg, start, end)
+        #print(reg, start, end)
 
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
@@ -225,7 +225,7 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         generateImageLinear(sd, FLAGS.coverage, filename)
         #saveBitmapImage(filename + ".bmp", bitmapArray)
         cnt += 1
-        if cnt % 10 == 0:
+        if cnt % 100 == 0:
             end_timer = timer()
             print(str(cnt) + " Records done")
             print("TIME elapsed "+ str(end_timer - start_timer))
