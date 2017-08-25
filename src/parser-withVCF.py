@@ -264,12 +264,6 @@ if __name__ == '__main__':
         help="Read coverage, default is 50x."
     )
     parser.add_argument(
-        "--bmp",
-        type=str,
-        default="pileup.bmp",
-        help="Name of output bitmap file"
-    )
-    parser.add_argument(
         "--matrix_out",
         type=bool,
         default=False,
@@ -297,9 +291,9 @@ if __name__ == '__main__':
     if not FLAGS.vcf_region_only:
         sd = generatePileupDictionary(FLAGS.region, FLAGS.site_start, FLAGS.site_end, FLAGS.bam, FLAGS.ref)
         bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        saveBitmapImage(FLAGS.bmp, bitmapArray)
+        saveBitmapImage(FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".bmp", bitmapArray)
 
         if FLAGS.matrix_out:
-            printBitmapArray(bitmapArray)
+            printBitmapArray(bitmapArray, FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".txt")
     else:
         generatePileupBasedonVCF(FLAGS.region, FLAGS.site_start, FLAGS.site_end, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.matrix_out, FLAGS.output_dir, FLAGS.window_size)
