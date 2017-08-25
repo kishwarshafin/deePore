@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import time
+from timeit import default_timer as timer
+
 """
 This program takes an alignment file (bam) and a reference file
 to create a sparse bitmap representation of the pileup. It uses
@@ -190,12 +192,12 @@ def saveBitmapImage(name, bitMapArray):
 def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
     cnt = 0
-    start = time.time()
+    start = timer()
     for rec in vcf_in.fetch():
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
-        print(reg, start, end)
+        #print(reg, start, end)
         #--LINEAR--#
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
@@ -204,7 +206,7 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         saveBitmapImage(filename + ".bmp", bitmapArray)
         cnt += 1
         if cnt % 10 == 0:
-            end = time.time()
+            end = timer()
             print(str(cnt) + " Records done")
             print("TIME elapsed"+ str(end - start))
         #print(rec, start+1, end, filename)
