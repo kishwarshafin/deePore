@@ -192,7 +192,7 @@ def saveBitmapImage(name, bitMapArray):
 def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
     cnt = 0
-    start = timer()
+    start_timer = timer()
     for rec in vcf_in.fetch():
         reg = rec.chrom
         start = rec.pos - window_size - 1
@@ -206,9 +206,9 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         saveBitmapImage(filename + ".bmp", bitmapArray)
         cnt += 1
         if cnt % 10 == 0:
-            end = timer()
+            end_timer = timer()
             print(str(cnt) + " Records done")
-            print("TIME elapsed"+ str(end - start))
+            print("TIME elapsed "+ str(end_timer - start_timer))
         #print(rec, start+1, end, filename)
         #--LINEAR END--#
         # filename = output_dir + rec.chrom + "-" + str(rec.pos)
