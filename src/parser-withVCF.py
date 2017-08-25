@@ -57,6 +57,7 @@ class pileUpCreator:
         :return:
         '''
         reference = self.refFile.fetch(region, start, end)
+        print("OK")
         dict = {}
         for pileupcolumn in self.samFile.pileup(region, start, end, truncate=True):
             pBitArray = bitarray()
@@ -193,7 +194,12 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
         print(reg, start, end)
-        #filename = output_dir + rec.chrom + "-" + str(rec.pos)
+        #--LINEAR--#
+        p = pileUpCreator(bamFile, refFile)
+        sd = p.generatePileupLinear(reg, start, end)
+        bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
+        #--LINEAR--#
+        # filename = output_dir + rec.chrom + "-" + str(rec.pos)
         #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
         #bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
         #saveBitmapImage(filename+".bmp", bitmapArray)
