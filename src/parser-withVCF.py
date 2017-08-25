@@ -190,6 +190,22 @@ def saveBitmapImage(name, bitMapArray):
     '''
     plt.imsave(name, np.array(bitMapArray.T), cmap=cm.gray)
 
+def generateImageLinear(dictionary, coverage, fileName):
+    '''
+    Linear function to generate the Image.
+    Used for testing multiprocessing.
+    '''
+    img = Image.new('1', (len(dictionary), coverage*6))
+    pixels = img.load()
+    #print(img.size[0], img.size[1])
+    for i in range(img.size[0]):
+        bitStr = dictionary[i].to01()
+        for j in range(img.size[1]):
+            pixels[i, j] = not int(bitStr[j]) if j<len(bitStr) else 1
+            #print(pixels[i, j], end='')
+        #print()
+    img.save(fileName+".bmp")
+
 def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
     cnt = 0
@@ -203,11 +219,11 @@ def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matr
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
         # --LINEAR--#
-        #sd = p.generatePileupLinear(reg, start, end)
+        sd = p.generatePileupLinear(reg, start, end)
         # --LINEAR END--#
-        sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
-        bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        saveBitmapImage(filename + ".bmp", bitmapArray)
+        #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
+        generateImageLinear(sd, FLAGS.coverage, filename)
+        #saveBitmapImage(filename + ".bmp", bitmapArray)
         cnt += 1
         if cnt % 10 == 0:
             end_timer = timer()
