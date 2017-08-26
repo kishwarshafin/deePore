@@ -6,7 +6,7 @@ def generatePileupBasedOnVCF(vcfFile, region):
     recordList = []
     cnt = 0
     for rec in vcf_in.fetch(region):
-        print(rec)
+        #print(rec)
         cnt+=1
         recordList.append(rec)
     print("Total record found: "+str(cnt)+" Region: "+region)
