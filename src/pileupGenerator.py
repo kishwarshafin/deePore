@@ -28,12 +28,12 @@ class pileupEncoder:
     - M represents a match with the reference base.
     - * represents a deletion
     '''
-    encoding = {'a': bitarray('010000'), 'A': bitarray('110000'),
-                'c': bitarray('001000'), 'C': bitarray('101000'),
-                'g': bitarray('000100'), 'G': bitarray('100100'),
-                't': bitarray('000010'), 'T': bitarray('100010'),
-                'm': bitarray('000000'), 'M': bitarray('100000'),
-                '*': bitarray('000001')}
+    encoding = {'a': bitarray('10000'), 'A': bitarray('10000'),
+                'c': bitarray('01000'), 'C': bitarray('01000'),
+                'g': bitarray('00100'), 'G': bitarray('00100'),
+                't': bitarray('00010'), 'T': bitarray('00010'),
+                'm': bitarray('00000'), 'M': bitarray('00000'),
+                '*': bitarray('00001')}
 class pileUpCreator:
     '''
     Creates pileup from given bam and reference file.
@@ -47,10 +47,10 @@ class pileUpCreator:
         self.bamFile = bamFile
         self.fastaFile = fastaFile
         self.refFile = pysam.FastaFile(fastaFile)
-        self.samFile = pysam.AlignmentFile(bamFile,"rb")
+        self.samFile = pysam.AlignmentFile(bamFile, "rb")
         self.vcfFile = vcfFile
 
-    def generatePileupLinear(self, region, start, end):
+    def generatePileupLinear(self, region, start, end, coverage, imgFilename):
         '''
         Linear program to generate a pileup
         :param region: Region in the genome. Ex: chr3
@@ -59,24 +59,25 @@ class pileUpCreator:
         :return:
         '''
         reference = self.refFile.fetch(region, start, end)
-        dict = {}
         region_bam = "chr" + region
+        img = Image.new('1', (end - start, coverage * 3))
+        pixels = img.load()
+        i = 0
         for pileupcolumn in self.samFile.pileup(region_bam, start, end, truncate=True):
-            pBitArray = bitarray()
+            columnList = []
             ref_base = str(reference[pileupcolumn.pos - start]).upper()
-            encodedString = ''
             for pileupread in pileupcolumn.pileups:
-                encodedChar = '*'
+                binaryList = [1, 0, 0]
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    encodedChar = self.getBinaryEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
-                encodedString += encodedChar
-            pBitArray.encode(pileupEncoder.encoding, encodedString)
-            dict[pileupcolumn.pos - start] = pBitArray
+                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
+                columnList.extend(binaryList)
+            for j in range(img.size[1]):
+                pixels[i, j] = int(columnList[j]) if j<len(columnList) else 0
+            i += 1
+        img.save(imgFilename + ".bmp")
 
-        return dict
-
-    def getBinaryEncodingForBase(self, base, ref_base , reverse_flag):
+    def getEncodingForBase(self, base, ref_base , reverse_flag):
         '''
         Returns binary encoding given a base and it's corresponding
         reference base. The reverse flag is used to determine if the
@@ -86,12 +87,19 @@ class pileUpCreator:
         :param reverse_flag: True if match is in reverse strand
         :return:
         '''
-        enChar = base
+        enChar = base.upper()
         if base==ref_base:
-            enChar = 'M'
-        if not reverse_flag:
-            return enChar.lower()
-        return enChar.upper()
+            return [0, 0, 0]
+        if enChar=='A':
+            return [0, 0, 1]
+        if enChar=='C':
+            return [0, 1, 0]
+        if enChar=='G':
+            return [0, 1, 1]
+        if enChar=='T':
+            return [1, 0, 0]
+        if enChar=='*':
+            return [1, 0, 0]
 
     def generateBinaryPileup(self, region, baseStart, start, end, sharedArray):
         '''
@@ -113,7 +121,7 @@ class pileUpCreator:
                 encodedChar = '*'
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    encodedChar = self.getBinaryEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
+                    encodedChar = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
                 encodedString += encodedChar
             #print(encodedString)
             pBitArray.encode(pileupEncoder.encoding, encodedString)
@@ -202,43 +210,28 @@ def generateImageLinear(dictionary, coverage, fileName):
         bitStr = dictionary[i].to01()
         for j in range(img.size[1]):
             pixels[i, j] = not int(bitStr[j]) if j<len(bitStr) else 1
-            #print(pixels[i, j], end='')
-        #print()
     img.save(fileName+".bmp")
 
-def generatePileupBasedonVCF(region, start, end, bamFile, refFile, vcfFile, matrix_out, output_dir, window_size):
+def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
     cnt = 0
     start_timer = timer()
-    for rec in vcf_in.fetch():
+    smry = open('summary'+'-'+vcf_region+".txt", 'w')
+    for rec in vcf_in.fetch(region):
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
-        #print(reg, start, end)
 
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
-        # --LINEAR--#
-        sd = p.generatePileupLinear(reg, start, end)
-        # --LINEAR END--#
-        #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
-        generateImageLinear(sd, FLAGS.coverage, filename)
-        #saveBitmapImage(filename + ".bmp", bitmapArray)
+        p.generatePileupLinear(reg, start, end, FLAGS.coverage, filename)
         cnt += 1
         if cnt % 100 == 0:
             end_timer = timer()
             print(str(cnt) + " Records done")
             print("TIME elapsed "+ str(end_timer - start_timer))
-        #print(rec, start+1, end, filename)
-
-        # filename = output_dir + rec.chrom + "-" + str(rec.pos)
-        #sd = generatePileupDictionary(reg, start, end, bamFile, refFile)
-        #bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        #saveBitmapImage(filename+".bmp", bitmapArray)
-        #print(rec, start+1, end, filename)
-
-        #if matrix_out:
-            #printBitmapArray(bitmapArray, filename+".txt")
+        print(rec, end='', file=smry)
+        print(start+1, end, filename, file=smry)
 
 
 
@@ -270,6 +263,12 @@ if __name__ == '__main__':
         "--region",
         type = str,
         default = "chr3",
+        help="Site region. Ex: chr3"
+    )
+    parser.add_argument(
+        "--vcf_region",
+        type=str,
+        default="3",
         help="Site region. Ex: chr3"
     )
     parser.add_argument(
@@ -323,4 +322,4 @@ if __name__ == '__main__':
         if FLAGS.matrix_out:
             printBitmapArray(bitmapArray, FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".txt")
     else:
-        generatePileupBasedonVCF(FLAGS.region, FLAGS.site_start, FLAGS.site_end, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.matrix_out, FLAGS.output_dir, FLAGS.window_size)
+        generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.matrix_out, FLAGS.output_dir, FLAGS.window_size)
