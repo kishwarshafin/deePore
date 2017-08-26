@@ -212,6 +212,7 @@ def generateImageLinear(dictionary, coverage, fileName):
             pixels[i, j] = not int(bitStr[j]) if j<len(bitStr) else 1
     img.save(fileName+".bmp")
 
+
 def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size):
     vcf_in = VariantFile(vcfFile)
     cnt = 0
@@ -322,4 +323,4 @@ if __name__ == '__main__':
         if FLAGS.matrix_out:
             printBitmapArray(bitmapArray, FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".txt")
     else:
-        generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.matrix_out, FLAGS.output_dir, FLAGS.window_size)
+        generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.output_dir, FLAGS.window_size)

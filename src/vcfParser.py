@@ -9,7 +9,7 @@ def generatePileupBasedOnVCF(vcfFile, region):
         #print(rec)
         cnt+=1
         recordList.append(rec)
-    print("Total record found: "+str(cnt)+" Region: "+region)
+    print("Total records found: "+str(cnt)+" Region: "+region)
     return recordList
 
 
