@@ -32,4 +32,4 @@ if __name__ == '__main__':
         help="Region of VCF file to parse."
     )
     FLAGS, unparsed = parser.parse_known_args()
-    generatePileupBasedOnVCF("/hive/users/kishwar/GRCh37.vcf")
+    generatePileupBasedOnVCF(FLAGS.vcf, FLAGS.region)
