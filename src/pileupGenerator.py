@@ -56,7 +56,7 @@ class pileUpCreator:
                 binaryList = [1, 0, 0]
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_revers, pileupcolumn.pos)
+                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse, pileupcolumn.pos)
                 columnList.extend(binaryList)
             for j in range(img.size[1]):
                 pixels[i, j] = int(columnList[j]) if j<len(columnList) else 0
