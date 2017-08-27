@@ -101,7 +101,7 @@ class pileUpCreator:
         elif enChar=='*':
             return [1, 0, 0]
         else:
-            print("THIS IS HAPPENING")
+            print("THIS IS HAPPENING. Base: "+ base + "Ref: " + ref_base)
 
     def generateBinaryPileup(self, region, baseStart, start, end, sharedArray):
         '''
