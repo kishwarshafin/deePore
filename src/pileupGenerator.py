@@ -58,9 +58,9 @@ class pileUpCreator:
         :param end: End site
         :return:
         '''
-        reference = self.refFile.fetch(region, start, end)
         region_bam = "chr" + region
         img = Image.new('1', (end - start, coverage * 3))
+        reference = self.refFile.fetch(region_bam, start, end)
         pixels = img.load()
         i = 0
         for pileupcolumn in self.samFile.pileup(region_bam, start, end, truncate=True):
