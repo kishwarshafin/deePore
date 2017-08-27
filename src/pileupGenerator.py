@@ -20,20 +20,6 @@ pysam's pileup method and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
 
-class pileupEncoder:
-    '''
-    Pileup encoding schema.
-    - Lowercase bases represent forward strand mis-match for a
-    specific base in the pileup.
-    - M represents a match with the reference base.
-    - * represents a deletion
-    '''
-    encoding = {'a': bitarray('10000'), 'A': bitarray('10000'),
-                'c': bitarray('01000'), 'C': bitarray('01000'),
-                'g': bitarray('00100'), 'G': bitarray('00100'),
-                't': bitarray('00010'), 'T': bitarray('00010'),
-                'm': bitarray('00000'), 'M': bitarray('00000'),
-                '*': bitarray('00001')}
 class pileUpCreator:
     '''
     Creates pileup from given bam and reference file.
@@ -70,7 +56,7 @@ class pileUpCreator:
                 binaryList = [1, 0, 0]
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
+                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_revers, pileupcolumn.pos)
                 columnList.extend(binaryList)
             for j in range(img.size[1]):
                 pixels[i, j] = int(columnList[j]) if j<len(columnList) else 0
@@ -103,32 +89,6 @@ class pileUpCreator:
         else:
             print("THIS IS HAPPENING. Base: "+ base + "Ref: " + ref_base + "Pos: "+ str(pos))
 
-    def generateBinaryPileup(self, region, baseStart, start, end, sharedArray):
-        '''
-        Fills a shared memory with bitarray representing the binary pileup.
-        :param region: Region in the genome. Ex: chr3
-        :param baseStart: Program's actual start site helps to determine the location in shared memory
-        :param start: Start site
-        :param end: End site
-        :param sharedArray: Shared array among processes
-        :return:
-        '''
-        reference = self.refFile.fetch(region, start, end)
-        region_bam = "chr" + region
-        for pileupcolumn in self.samFile.pileup(region_bam, start, end, truncate=True):
-            pBitArray = bitarray()
-            ref_base = str(reference[pileupcolumn.pos-start]).upper()
-            encodedString = ''
-            for pileupread in pileupcolumn.pileups:
-                encodedChar = '*'
-                if not pileupread.is_del and not pileupread.is_refskip:
-                    pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    encodedChar = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse, pileupcolumn.pos)
-                encodedString += encodedChar
-            #print(encodedString)
-            pBitArray.encode(pileupEncoder.encoding, encodedString)
-            sharedArray[pileupcolumn.pos-baseStart] = pBitArray
-
     def closeSamFile(self):
         '''
         Closes the samfile.
@@ -136,52 +96,6 @@ class pileUpCreator:
         '''
         self.samFile.close()
 
-
-def generatePileupDictionary(region, start, end, bamFile, refFile):
-    '''
-    Returns a pileup dictionary representation.
-    Key is the site and value is binary bitarray.
-    '''
-    cores = multiprocessing.cpu_count()
-    processes = []
-    currentStart = start
-    processManager = Manager()
-    sharedDict = processManager.dict()
-    for num in range(cores):
-        p = pileUpCreator(bamFile, refFile)
-        currentEnd = currentStart + int((end-start)/cores) if num < cores-1 else end
-        pr = Process(target=p.generateBinaryPileup, args=(region, start, currentStart, currentEnd, sharedDict,))
-        pr.start()
-        processes.append(pr)
-        currentStart = currentEnd
-
-    for p in processes:
-        p.join()
-
-    return sharedDict
-
-def generateImageParallel(args):
-    '''
-    Fill up array from dictionary.
-    :param args:
-    :return:
-    '''
-    dictionary, coverage, start = args
-    ret = []
-    bitStr = dictionary[start].to01()
-    for j in range(coverage*6):
-        ret.append(not int(bitStr[j]) if j<len(bitStr) else 1)
-    return ret
-
-def generateBmpParallel(dictionary, coverage):
-    '''
-    Uses multiprocessing to fill up the array from bitmap dictionary.
-    '''
-    pool = Pool(processes=multiprocessing.cpu_count())
-    params = [(dictionary, coverage, i) for i in range(len(dictionary))]
-    bitMapArray = np.array(pool.map(generateImageParallel, params))
-    pool.close()
-    return bitMapArray
 
 def printBitmapArray(bitMapArray, filename):
     '''
@@ -193,26 +107,6 @@ def printBitmapArray(bitMapArray, filename):
             print(bitMapArray[i][j],end='', file=f)
         print(file=f)
     f.close()
-
-def saveBitmapImage(name, bitMapArray):
-    '''
-    Save image to file
-    '''
-    plt.imsave(name, np.array(bitMapArray.T), cmap=cm.gray)
-
-def generateImageLinear(dictionary, coverage, fileName):
-    '''
-    Linear function to generate the Image.
-    Used for testing multiprocessing.
-    '''
-    img = Image.new('1', (len(dictionary), coverage*6))
-    pixels = img.load()
-    #print(img.size[0], img.size[1])
-    for i in range(img.size[0]):
-        bitStr = dictionary[i].to01()
-        for j in range(img.size[1]):
-            pixels[i, j] = not int(bitStr[j]) if j<len(bitStr) else 1
-    img.save(fileName+".bmp")
 
 
 def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size):
@@ -317,12 +211,4 @@ if __name__ == '__main__':
         help="Window size of pileup."
     )
     FLAGS, unparsed = parser.parse_known_args()
-    if not FLAGS.vcf_region_only:
-        sd = generatePileupDictionary(FLAGS.region, FLAGS.site_start, FLAGS.site_end, FLAGS.bam, FLAGS.ref)
-        bitmapArray = generateBmpParallel(sd, FLAGS.coverage)
-        saveBitmapImage(FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".bmp", bitmapArray)
-
-        if FLAGS.matrix_out:
-            printBitmapArray(bitmapArray, FLAGS.output_dir + FLAGS.region + "-" + str(FLAGS.site_start) +".txt")
-    else:
-        generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.output_dir, FLAGS.window_size)
+    generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.output_dir, FLAGS.window_size)
