@@ -77,7 +77,7 @@ class pileUpCreator:
             i += 1
         img.save(imgFilename + ".bmp")
 
-    def getEncodingForBase(self, base, ref_base , reverse_flag):
+    def getEncodingForBase(self, base, ref_base , reverse_flag, pos):
         '''
         Returns binary encoding given a base and it's corresponding
         reference base. The reverse flag is used to determine if the
@@ -101,7 +101,7 @@ class pileUpCreator:
         elif enChar=='*':
             return [1, 0, 0]
         else:
-            print("THIS IS HAPPENING. Base: "+ base + "Ref: " + ref_base)
+            print("THIS IS HAPPENING. Base: "+ base + "Ref: " + ref_base + "Pos: "+ str(pos))
 
     def generateBinaryPileup(self, region, baseStart, start, end, sharedArray):
         '''
@@ -123,7 +123,7 @@ class pileUpCreator:
                 encodedChar = '*'
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    encodedChar = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
+                    encodedChar = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse, pileupcolumn.pos)
                 encodedString += encodedChar
             #print(encodedString)
             pBitArray.encode(pileupEncoder.encoding, encodedString)
