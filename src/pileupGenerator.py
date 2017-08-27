@@ -85,9 +85,9 @@ class pileUpCreator:
         elif enChar=='T':
             return [1, 0, 0]
         elif enChar=='*':
-            return [1, 0, 0]
+            return [1, 0, 1]
         else:
-            print("THIS IS HAPPENING. Base: "+ base + "Ref: " + ref_base + "Pos: "+ str(pos))
+            return [1, 1, 0]
 
     def closeSamFile(self):
         '''
