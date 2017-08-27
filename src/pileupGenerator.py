@@ -90,16 +90,18 @@ class pileUpCreator:
         enChar = base.upper()
         if base==ref_base:
             return [0, 0, 0]
-        if enChar=='A':
+        elif enChar=='A':
             return [0, 0, 1]
-        if enChar=='C':
+        elif enChar=='C':
             return [0, 1, 0]
-        if enChar=='G':
+        elif enChar=='G':
             return [0, 1, 1]
-        if enChar=='T':
+        elif enChar=='T':
             return [1, 0, 0]
-        if enChar=='*':
+        elif enChar=='*':
             return [1, 0, 0]
+        else:
+            print("THIS IS HAPPENING")
 
     def generateBinaryPileup(self, region, baseStart, start, end, sharedArray):
         '''
@@ -227,7 +229,7 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
         p = pileUpCreator(bamFile, refFile)
         p.generatePileupLinear(reg, start, end, FLAGS.coverage, filename)
         cnt += 1
-        if cnt % 100 == 0:
+        if cnt % 1000 == 0:
             end_timer = timer()
             print(str(cnt) + " Records done", file=sys.stderr)
             print("TIME elapsed "+ str(end_timer - start_timer), file=sys.stderr)
