@@ -6,7 +6,7 @@ def generatePileupBasedOnVCF(vcfFile, region):
     recordList = []
     cnt = 0
     for rec in vcf_in.fetch(region):
-        #print(rec)
+        img = Image.new('1', (end - start, coverage * 3))
         cnt+=1
         recordList.append(rec)
     print("Total records found: "+str(cnt)+" Region: "+region)
