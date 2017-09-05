@@ -90,7 +90,7 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, (6, 3))
         self.pool = nn.MaxPool2d((6, 3))
         self.conv2 = nn.Conv2d(6, 16, (6, 3))
-        self.fc1 = nn.Linear(16 * 1 * 4, 32)
+        self.fc1 = nn.Linear(16 * 1 * 10, 32)
         self.fc2 = nn.Linear(32, 16)
         self.fc3 = nn.Linear(16, 8)
 
