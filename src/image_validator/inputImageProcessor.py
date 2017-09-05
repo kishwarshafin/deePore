@@ -127,25 +127,32 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.register("type", "bool", lambda v: v.lower() == "true")
     parser.add_argument(
-        "--summary_file",
+        "--summary_file_train",
+        type=str,
+        required=True,
+        help="Summary file for train data."
+    )
+    parser.add_argument(
+        "--summary_file_test",
         type=str,
         required = True,
-        help="Summary file name."
+        help="Summary file for test data."
     )
     FLAGS, unparsed = parser.parse_known_args()
 
     transformations = transforms.Compose([transforms.ToTensor()])
-    dset = PileupDataset(FLAGS.summary_file, transformations)
-    trainloader = DataLoader(dset,
-                              batch_size=20,
+    train_dset = PileupDataset(FLAGS.summary_file_train, transformations)
+    test_dset = PileupDataset(FLAGS.summary_file_test, transformations)
+    trainloader = DataLoader(train_dset,
+                              batch_size=2000,
                               shuffle=True,
-                              num_workers=2
+                              num_workers=4
                               # pin_memory=True # CUDA only
                           )
-    trainloader = DataLoader(dset,
-                             batch_size=20,
+    trainloader = DataLoader(test_dset,
+                             batch_size=2000,
                              shuffle=False,
-                             num_workers=2
+                             num_workers=4
                              # pin_memory=True # CUDA only
                              )
     net = Net()
@@ -162,7 +169,7 @@ if __name__ == '__main__':
         #print(i, img.size(), label)
         #break
 
-    for epoch in range(200):  # loop over the dataset multiple times
+    for epoch in range(20):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
