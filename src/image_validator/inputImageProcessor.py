@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
     #for batch_idx, (data, target) in enumerate(trainloader):
         #print(batch_idx)
-    for i in range(len(dset)):
+    for i in range(len(train_dset)):
         #img, label = dset[i]
         #npimg = img.numpy()
         #plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation='nearest')
