@@ -87,7 +87,7 @@ class PileupDataset(Dataset):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, (6, 3), padding=1)
+        self.conv1 = nn.Conv2d(3, 6, (6, 3))
         self.pool = nn.MaxPool2d((6, 3))
         self.conv2 = nn.Conv2d(6, 16, (6, 3))
         self.fc1 = nn.Linear(16 * 1 * 4, 32)
@@ -95,19 +95,19 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(16, 8)
 
     def forward(self, x):
-        #print("BEFORE: ", x.size())
+        print("BEFORE: ", x.size())
         x = self.pool(F.relu(self.conv1(x)))
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
         x = self.pool(F.relu(self.conv2(x)))
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
         x = x.view(-1, self.num_flat_features(x))
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
         x = F.relu(self.fc1(x))
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
         x = F.relu(self.fc2(x))
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
         x = self.fc3(x)
-        #print("AFTER : ", x.size())
+        print("AFTER : ", x.size())
 
         return x
 
