@@ -87,7 +87,7 @@ class PileupDataset(Dataset):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, (6, 3))
+        self.conv1 = nn.Conv2d(3, 6, (6, 3), padding=1)
         self.pool = nn.MaxPool2d((6, 3))
         self.conv2 = nn.Conv2d(6, 16, (6, 3))
         self.fc1 = nn.Linear(16 * 1 * 4, 32)
