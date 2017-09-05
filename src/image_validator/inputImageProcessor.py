@@ -95,19 +95,19 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(16, 8)
 
     def forward(self, x):
-        print("BEFORE: ", x.size())
+        #print("BEFORE: ", x.size())
         x = self.pool(F.relu(self.conv1(x)))
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
         x = self.pool(F.relu(self.conv2(x)))
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
         x = x.view(-1, self.num_flat_features(x))
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
         x = F.relu(self.fc1(x))
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
         x = F.relu(self.fc2(x))
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
         x = self.fc3(x)
-        print("AFTER : ", x.size())
+        #print("AFTER : ", x.size())
 
         return x
 
@@ -169,7 +169,7 @@ if __name__ == '__main__':
         print(i, img.size(), label)
         break
 
-    for epoch in range(20):  # loop over the dataset multiple times
+    for epoch in range(2):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
