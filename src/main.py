@@ -57,7 +57,7 @@ def train(summary_file, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
     train_dset = PileupDataset(summary_file, transformations)
     trainloader = DataLoader(train_dset,
-                             batch_size=10000,
+                             batch_size=1000,
                              shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
