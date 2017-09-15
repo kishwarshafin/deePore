@@ -70,7 +70,7 @@ def train(summary_file, fileName):
     optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
-    for epoch in range(1000):
+    for epoch in range(1):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
