@@ -71,7 +71,7 @@ def train(summary_file, fileName):
 
     # Train the Model
     print("Training the model now")
-    for epoch in range(5):
+    for epoch in range(500):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
@@ -91,10 +91,10 @@ def train(summary_file, fileName):
                 optimizer.step()
 
                 # loss count
-                total_images += 10000  # batch_size
+                total_images += 5000  # batch_size
                 total_loss += loss
-            print("Batches done: ", i+1)
-            print("Loss: ", total_loss/total_images)
+            #print("Batches done: ", i+1)
+            #print("Loss: ", total_loss/total_images)
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
