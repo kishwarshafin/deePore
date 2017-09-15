@@ -57,7 +57,7 @@ def train(summary_file, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
     train_dset = PileupDataset(summary_file, transformations)
     trainloader = DataLoader(train_dset,
-                             batch_size=20,
+                             batch_size=10000,
                              shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
@@ -70,7 +70,7 @@ def train(summary_file, fileName):
     optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
-    for epoch in range(100):
+    for epoch in range(1000):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
@@ -90,7 +90,7 @@ def train(summary_file, fileName):
                 optimizer.step()
 
                 # loss count
-                total_images += 20  # batch_size
+                total_images += 10000  # batch_size
                 total_loss += loss
 
         print('EPOCH: ', epoch, end='')
@@ -107,7 +107,7 @@ def test(summary_file, model_path):
     transformations = transforms.Compose([transforms.ToTensor()])
     test_dset = PileupDataset(summary_file, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=20,
+                            batch_size=10000,
                             shuffle=False,
                             num_workers=4
                             # pin_memory=True # CUDA only
