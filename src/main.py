@@ -57,7 +57,7 @@ def train(summary_file, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
     train_dset = PileupDataset(summary_file, transformations)
     trainloader = DataLoader(train_dset,
-                             batch_size=1000,
+                             batch_size=10000,
                              shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
@@ -70,7 +70,7 @@ def train(summary_file, fileName):
     optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
-    for epoch in range(1):
+    for epoch in range(500):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
@@ -92,7 +92,6 @@ def train(summary_file, fileName):
                 # loss count
                 total_images += 10000  # batch_size
                 total_loss += loss
-            break
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
