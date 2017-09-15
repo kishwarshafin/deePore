@@ -92,6 +92,7 @@ def train(summary_file, fileName):
                 # loss count
                 total_images += 10000  # batch_size
                 total_loss += loss
+            break
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
