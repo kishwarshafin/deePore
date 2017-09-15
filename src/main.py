@@ -70,7 +70,7 @@ def train(summary_file, fileName):
     optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
-    for epoch in range(500):
+    for epoch in range(5):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
@@ -92,6 +92,9 @@ def train(summary_file, fileName):
                 # loss count
                 total_images += 10000  # batch_size
                 total_loss += loss
+            if (i+1) % 10 == 0:
+                print("Batches done: ", i+1)
+                print("Loss: ", total_loss/total_images)
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
@@ -206,8 +209,10 @@ if __name__ == '__main__':
         default='./model/CNN.pt',
         help="Saved model path."
     )
+    print("Starting")
     FLAGS, unparsed = parser.parse_known_args()
     if FLAGS.train:
+        print("Training starting")
         train(FLAGS.summary_file, FLAGS.model_out)
     elif FLAGS.predict:
         test(FLAGS.summary_file, FLAGS.model_path)
