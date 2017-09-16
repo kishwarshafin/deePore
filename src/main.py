@@ -71,7 +71,7 @@ def train(summary_file, fileName):
 
     # Train the Model
     print("Training the model now")
-    for epoch in range(500):
+    for epoch in range(5):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
