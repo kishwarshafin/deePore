@@ -93,8 +93,9 @@ def train(summary_file, fileName):
                 # loss count
                 total_images += 5000  # batch_size
                 total_loss += loss
-            #print("Batches done: ", i+1)
-            #print("Loss: ", total_loss/total_images)
+            if (i+1) %10 == 0:
+                print("EPOCH: ", epoch, " Batches done: ", i+1, end='')
+                print(" Loss: ", total_loss.data[0]/total_images)
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
