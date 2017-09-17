@@ -146,19 +146,19 @@ def test(summary_file, model_path):
             for i, target in enumerate(ypl):
                 if target == 0:
                     total_hom += 1
-                    eq = torch.equal(predicted[i], torch.LongTensor(target))
+                    eq = torch.equal(torch.LongTensor(predicted[i]), torch.LongTensor(target))
                     if eq:
                         correct_hom += 1
                         correct += 1
                 elif target == 1:
                     total_het += 1
-                    eq = torch.equal(predicted[i], torch.LongTensor(target))
+                    eq = torch.equal(torch.LongTensorpredicted[i]), torch.LongTensor(target))
                     if eq:
                         correct_het += 1
                         correct += 1
                 elif target == 2:
                     total_homalt += 1
-                    eq = torch.equal(predicted[i], torch.LongTensor(target))
+                    eq = torch.equal(torch.LongTensorpredicted[i]), torch.LongTensor(target))
                     if eq:
                         correct_homalt += 1
                         correct += 1
