@@ -146,22 +146,23 @@ def test(summary_file, model_path):
             for i, target in enumerate(ypl):
                 if target == 0:
                     total_hom += 1
-                    eq = (predicted[i] == target).sum()
+                    eq = torch.equal(predicted[i], torch.LongTensor(target))
                     if eq:
                         correct_hom += 1
+                        correct += 1
                 elif target == 1:
                     total_het += 1
-                    eq = (predicted[i] == target).sum()
+                    eq = torch.equal(predicted[i], torch.LongTensor(target))
                     if eq:
                         correct_het += 1
+                        correct += 1
                 elif target == 2:
                     total_homalt += 1
-                    eq = (predicted[i] == target).sum()
+                    eq = torch.equal(predicted[i], torch.LongTensor(target))
                     if eq:
                         correct_homalt += 1
-
-            total += ypl.size(0)
-            correct += (predicted == ypl).sum()
+                        correct += 1
+                total += 1
     print('Total hom: ', total_hom, 'Correctly predicted: ', correct_hom, 'Accuracy: ', correct_hom / total_hom * 100)
     print('Total het: ', total_het, 'Correctly predicted: ', correct_het, 'Accuracy: ', correct_het / total_het * 100)
     print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
