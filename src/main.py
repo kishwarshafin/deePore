@@ -91,7 +91,7 @@ def train(summary_file, fileName):
                 optimizer.step()
 
                 # loss count
-                total_images += 20  # batch_size
+                total_images += 5000  # batch_size
                 total_loss += loss
             #if (i+1) %10 == 0:
                 #print("EPOCH: ", epoch, " Batches done: ", i+1, end='')
@@ -111,7 +111,7 @@ def test(summary_file, model_path):
     transformations = transforms.Compose([transforms.ToTensor()])
     test_dset = PileupDataset(summary_file, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=100,
+                            batch_size=20,
                             shuffle=False,
                             num_workers=4
                             # pin_memory=True # CUDA only
@@ -134,36 +134,34 @@ def test(summary_file, model_path):
         labels = Variable(labels)
         #print(labels.size())
         for row in range(images.size(2)):
-            #print(i, row, images[:, :, row:row+1, :].size(), labels[0][row])
+            # print(i, row, images[:, :, row:row+1, :].size(), labels[0][row])
             x = images[:, :, row:row + 1, :]
             y = labels[:, row]
             ypl = pl[:, row]
             outputs = cnn(x)
 
             _, predicted = torch.max(outputs.data, 1)
-            #print(predicted.size())
+            # print(predicted.size())
             # print(ypl.size())
             for i, target in enumerate(ypl):
                 t_tensor = torch.LongTensor([ypl[i]])
-                #print(type(predicted[i]), predicted[i].size())
-                #print(type(t_tensor), t_tensor.size())
-                #exit()
+                p_tensor = torch.LongTensor([predicted[i]])
                 if target == 0:
                     total_hom += 1
-                    eq = torch.equal(t_tensor, predicted[i])
+                    eq = torch.equal(t_tensor, p_tensor)
                     if eq:
                         correct_hom += 1
                         correct += 1
                 elif target == 1:
                     total_het += 1
-                    eq = torch.equal(t_tensor, predicted[i])
+                    eq = torch.equal(t_tensor, p_tensor)
                     if eq:
                         correct_het += 1
                         correct += 1
                 elif target == 2:
                     #print(t_tensor, predicted[i])
                     total_homalt += 1
-                    eq = torch.equal(t_tensor, predicted[i])
+                    eq = torch.equal(t_tensor, p_tensor)
                     #print(eq)
                     if eq:
                         correct_homalt += 1
@@ -175,7 +173,8 @@ def test(summary_file, model_path):
     print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
           correct_homalt / total_homalt * 100)
 
-    print('Test Accuracy of the model on the test images: %d %%' % (100 * correct / total))
+    print("Test Accuracy of the model on the test images:", (100 * correct / total))
+    print("Most populated class: ", total_hom/total * 100)
 
 
 
