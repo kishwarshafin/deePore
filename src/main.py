@@ -57,7 +57,7 @@ def train(summary_file, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
     train_dset = PileupDataset(summary_file, transformations)
     trainloader = DataLoader(train_dset,
-                             batch_size=5000,
+                             batch_size=20,
                              shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
@@ -71,7 +71,7 @@ def train(summary_file, fileName):
 
     # Train the Model
     print("Training the model now")
-    for epoch in range(5):
+    for epoch in range(100):
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(trainloader):
@@ -91,11 +91,11 @@ def train(summary_file, fileName):
                 optimizer.step()
 
                 # loss count
-                total_images += 5000  # batch_size
+                total_images += 20  # batch_size
                 total_loss += loss
-            if (i+1) %10 == 0:
-                print("EPOCH: ", epoch, " Batches done: ", i+1, end='')
-                print(" Loss: ", total_loss.data[0]/total_images)
+            #if (i+1) %10 == 0:
+                #print("EPOCH: ", epoch, " Batches done: ", i+1, end='')
+                #print(" Loss: ", total_loss.data[0]/total_images)
 
         print('EPOCH: ', epoch, end='')
         print(' Image segments ', total_images, 'Avg Loss: ', total_loss.data[0] / total_images)
@@ -111,7 +111,7 @@ def test(summary_file, model_path):
     transformations = transforms.Compose([transforms.ToTensor()])
     test_dset = PileupDataset(summary_file, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=10000,
+                            batch_size=100,
                             shuffle=False,
                             num_workers=4
                             # pin_memory=True # CUDA only
@@ -132,37 +132,44 @@ def test(summary_file, model_path):
         images = Variable(images)
         pl = labels
         labels = Variable(labels)
-        # print(labels.size())
+        #print(labels.size())
         for row in range(images.size(2)):
-            # print(i, row, images[:, :, row:row+1, :].size(), labels[0][row])
+            #print(i, row, images[:, :, row:row+1, :].size(), labels[0][row])
             x = images[:, :, row:row + 1, :]
             y = labels[:, row]
             ypl = pl[:, row]
             outputs = cnn(x)
 
             _, predicted = torch.max(outputs.data, 1)
-            # print(predicted.size())
+            #print(predicted.size())
             # print(ypl.size())
             for i, target in enumerate(ypl):
+                t_tensor = torch.LongTensor([ypl[i]])
+                #print(type(predicted[i]), predicted[i].size())
+                #print(type(t_tensor), t_tensor.size())
+                #exit()
                 if target == 0:
                     total_hom += 1
-                    eq = torch.equal(torch.LongTensor(predicted[i]), torch.LongTensor(target))
+                    eq = torch.equal(t_tensor, predicted[i])
                     if eq:
                         correct_hom += 1
                         correct += 1
                 elif target == 1:
                     total_het += 1
-                    eq = torch.equal(torch.LongTensor(predicted[i]), torch.LongTensor(target))
+                    eq = torch.equal(t_tensor, predicted[i])
                     if eq:
                         correct_het += 1
                         correct += 1
                 elif target == 2:
+                    #print(t_tensor, predicted[i])
                     total_homalt += 1
-                    eq = torch.equal(torch.LongTensor(predicted[i]), torch.LongTensor(target))
+                    eq = torch.equal(t_tensor, predicted[i])
+                    #print(eq)
                     if eq:
                         correct_homalt += 1
                         correct += 1
                 total += 1
+
     print('Total hom: ', total_hom, 'Correctly predicted: ', correct_hom, 'Accuracy: ', correct_hom / total_hom * 100)
     print('Total het: ', total_het, 'Correctly predicted: ', correct_het, 'Accuracy: ', correct_het / total_het * 100)
     print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
