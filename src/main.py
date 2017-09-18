@@ -57,7 +57,7 @@ def train(summary_file, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
     train_dset = PileupDataset(summary_file, transformations)
     trainloader = DataLoader(train_dset,
-                             batch_size=20,
+                             batch_size=5000,
                              shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
@@ -111,7 +111,7 @@ def test(summary_file, model_path):
     transformations = transforms.Compose([transforms.ToTensor()])
     test_dset = PileupDataset(summary_file, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=20,
+                            batch_size=5000,
                             shuffle=False,
                             num_workers=4
                             # pin_memory=True # CUDA only
