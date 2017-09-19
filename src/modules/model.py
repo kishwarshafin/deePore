@@ -1,11 +1,5 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
-from torch.autograd import Variable
-from torch.utils import model_zoo
-from torchvision import models
-import numpy as np
 
 
 # CNN Model (2 conv layer)
