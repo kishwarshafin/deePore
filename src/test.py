@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 from scipy import misc
-from modules.model import CNN
+from modules.model import CRNN
 from modules.dataset import PileupDataset, TextColor
 import sys
 
@@ -41,8 +41,39 @@ def test(csvFile, batchSize, modelPath):
 
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images)
-        pl = labels
+        predictions = cnn(images)
+        #print(predictions)
+        _, predictions = torch.max(predictions.data, 2)
+        #print(predictions)
+        #print(labels)
+        #print(labels.size())
+        for i in range(labels.size(0)):
+            for j in range(labels.size(1)):
+                if labels[i, j] == 0:
+                    total_hom += 1
+                    if labels[i, j] == predictions[i, j]:
+                        correct_hom += 1
+                        correct += 1
+                elif labels[i, j] == 1:
+                    total_het += 1
+                    if labels[i, j] == predictions[i, j]:
+                        correct_het += 1
+                        correct += 1
+                elif labels[i, j] == 2:
+                    total_homalt += 1
+                    if labels[i, j] == predictions[i, j]:
+                        correct_homalt += 1
+                        correct += 1
+                total += 1
+    print('Total hom: ', total_hom, 'Correctly predicted: ', correct_hom, 'Accuracy: ', correct_hom / total_hom * 100)
+    print('Total het: ', total_het, 'Correctly predicted: ', correct_het, 'Accuracy: ', correct_het / total_het * 100)
+    print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
+          correct_homalt / total_homalt * 100)
 
+    print("Test Accuracy of the model on the test images:", (100 * correct / total))
+    print("Most populated class: ", total_hom / total * 100)
+    exit()
+    '''
         for row in range(images.size(2)):
             x = images[:, :, row:row + 1, :]
             ypl = pl[:, row]
@@ -82,7 +113,7 @@ def test(csvFile, batchSize, modelPath):
 
     print("Test Accuracy of the model on the test images:", (100 * correct / total))
     print("Most populated class: ", total_hom/total * 100)
-
+    '''
 
 
 if __name__ == '__main__':

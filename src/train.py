@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import CNN
+from modules.model import CRNN
 from modules.dataset import PileupDataset, TextColor
 from torch.nn.utils.rnn import pack_padded_sequence
 
@@ -29,13 +29,11 @@ def train(csvFile, batchSize, epochLimit, fileName):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = CNN()
+    cnn = CRNN(inChannel=1, outChannel=50, coverageDepth=34 * 3, hiddenNum=100, hiddenLayer=3, bidirection=True, classN=3)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    #criterion = nn.NLLLoss()
-    #print('params', list(cnn.parameters()))
-    optimizer = torch.optim.Adam(cnn.parameters())
+    optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -52,12 +50,8 @@ def train(csvFile, batchSize, epochLimit, fileName):
             length = outputs.size(2)
             loss = criterion(outputs.view(-1, length), labels.view(-1))
 
-            #loss = criterion(outputs, labels)
-            #print(loss)
             loss.backward()
-            #print(loss)
             optimizer.step()
-            #print(loss)
 
             # loss count
             total_images += batchSize
@@ -65,7 +59,7 @@ def train(csvFile, batchSize, epochLimit, fileName):
 
             #if (i+1) % 100 == 0:
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
-            sys.stderr.write("Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
+            sys.stderr.write(" Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
 
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
@@ -110,7 +104,7 @@ if __name__ == '__main__':
         "--model_out",
         type=str,
         required=False,
-        default='./CNN',
+        default='./CRNN',
         help="Path and filename to save model, default is ./CNN"
     )
     FLAGS, unparsed = parser.parse_known_args()
