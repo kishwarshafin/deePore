@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
-
+from torch.nn.utils.rnn import pack_padded_sequence
 
 def train(csvFile, batchSize, epochLimit, fileName):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -22,17 +22,20 @@ def train(csvFile, batchSize, epochLimit, fileName):
     trainDset = PileupDataset(csvFile, transformations)
     trainLoader = DataLoader(trainDset,
                              batch_size=batchSize,
-                             shuffle=True,
+                             shuffle=False,
                              num_workers=4
                              # pin_memory=True # CUDA only
                              )
+
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     cnn = CNN()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
+    #criterion = nn.NLLLoss()
+    #print('params', list(cnn.parameters()))
+    optimizer = torch.optim.Adam(cnn.parameters())
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -43,25 +46,26 @@ def train(csvFile, batchSize, epochLimit, fileName):
             images = Variable(images)
             labels = Variable(labels)
 
-            for row in range(images.size(2)):
-                # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row + 1, :]
-                y = labels[:, row]
+            # Forward + Backward + Optimize
+            optimizer.zero_grad()
+            outputs = cnn(images)
+            length = outputs.size(2)
+            loss = criterion(outputs.view(-1, length), labels.view(-1))
 
-                # Forward + Backward + Optimize
-                optimizer.zero_grad()
-                outputs = cnn(x)
-                loss = criterion(outputs, y)
-                loss.backward()
-                optimizer.step()
+            #loss = criterion(outputs, labels)
+            #print(loss)
+            loss.backward()
+            #print(loss)
+            optimizer.step()
+            #print(loss)
 
-                # loss count
-                total_images += batchSize
-                total_loss += loss
+            # loss count
+            total_images += batchSize
+            total_loss += loss
 
-            if (i+1) % 100 == 0:
-                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
-                sys.stderr.write("Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
+            #if (i+1) % 100 == 0:
+            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
+            sys.stderr.write("Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
 
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
