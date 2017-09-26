@@ -22,14 +22,14 @@ def train(csvFile, batchSize, epochLimit, fileName):
     trainDset = PileupDataset(csvFile, transformations)
     trainLoader = DataLoader(trainDset,
                              batch_size=batchSize,
-                             shuffle=False,
+                             shuffle=True,
                              num_workers=4
                              # pin_memory=True # CUDA only
                              )
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = CRNN(inChannel=1, outChannel=50, coverageDepth=34 * 3, hiddenNum=100, hiddenLayer=3, bidirection=True, classN=3)
+    cnn = CRNN(inChannel=1, outChannel=50, coverageDepth=34, hiddenNum=100, hiddenLayer=2, bidirection=True, classN=3)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
