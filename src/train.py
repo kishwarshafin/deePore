@@ -29,7 +29,7 @@ def train(csvFile, batchSize, epochLimit, fileName):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = CRNN(inChannel=1, outChannel=50, coverageDepth=34, hiddenNum=100, hiddenLayer=2, bidirection=True, classN=3)
+    cnn = CRNN(inChannel=1, outChannel=200, coverageDepth=34, hiddenNum=200, hiddenLayer=3, bidirection=True, classN=3)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
