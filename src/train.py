@@ -48,6 +48,10 @@ def train(csvFile, batchSize, epochLimit, fileName):
             optimizer.zero_grad()
             outputs = cnn(images)
             length = outputs.size(2)
+
+            #if total_images % 10 == 0:
+                #print(torch.cat((outputs.view(-1, length).data, labels.view(-1, 1).data.float()), 1))
+
             loss = criterion(outputs.view(-1, length), labels.view(-1))
 
             loss.backward()
