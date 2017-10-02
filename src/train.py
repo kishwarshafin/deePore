@@ -14,7 +14,6 @@ import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 
-def evaluate()
 
 def train(csvFile, batchSize, epochLimit, fileName, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
