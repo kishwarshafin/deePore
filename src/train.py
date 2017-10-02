@@ -56,7 +56,7 @@ def train(csvFile, batchSize, epochLimit, fileName, gpu_mode):
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = cnn(x)
-                loss = criterion(outputs, y)
+                loss = criterion(outputs, y.cpu())
                 loss.backward()
                 optimizer.step()
 
