@@ -14,8 +14,9 @@ import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 
+def evaluate()
 
-def train(csvFile, batchSize, epochLimit, fileName):
+def train(csvFile, batchSize, epochLimit, fileName, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -23,12 +24,14 @@ def train(csvFile, batchSize, epochLimit, fileName):
     trainLoader = DataLoader(trainDset,
                              batch_size=batchSize,
                              shuffle=True,
-                             num_workers=4
-                             # pin_memory=True # CUDA only
+                             num_workers=4,
+                             pin_memory=gpu_mode # CUDA only
                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     cnn = CNN()
+    if gpu_mode:
+        cnn = cnn.cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
@@ -42,6 +45,9 @@ def train(csvFile, batchSize, epochLimit, fileName):
         for i, (images, labels) in enumerate(trainLoader):
             images = Variable(images)
             labels = Variable(labels)
+            if gpu_mode:
+                images = images.cuda()
+                labels = labels.cuda()
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
@@ -57,14 +63,14 @@ def train(csvFile, batchSize, epochLimit, fileName):
 
                 # loss count
                 total_images += batchSize
-                total_loss += loss
+                total_loss += loss.data[0]
 
-            if (i+1) % 100 == 0:
-                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
-                sys.stderr.write("Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
+            # if (i+1) % 1 == 0:
+            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
+            sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
 
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
 
@@ -109,8 +115,14 @@ if __name__ == '__main__':
         default='./CNN',
         help="Path and filename to save model, default is ./CNN"
     )
+    parser.add_argument(
+        "--gpu_mode",
+        type=bool,
+        default=False,
+        help="If true then cuda is on."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    train(FLAGS.csv_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out)
+    train(FLAGS.csv_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
 
 

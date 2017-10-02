@@ -110,6 +110,12 @@ if __name__ == '__main__':
         default='./CNN.pkl',
         help="Saved model path."
     )
+    parser.add_argument(
+        "--gpu_mode",
+        type=bool,
+        default=False,
+        help="If true then cuda is on."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
     test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path)
