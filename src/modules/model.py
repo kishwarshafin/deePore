@@ -20,9 +20,9 @@ class CNN(nn.Module):
                                stride=(1, 3))
         self.conv3 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False)
         # -----FCL----- #
-        self.fc1 = nn.Linear(outChannel * coverageDepth * 3, 10000)
-        self.fc2 = nn.Linear(10000, 300)
-        self.fc3 = nn.Linear(300, self.classN)
+        self.fc1 = nn.Linear(outChannel * coverageDepth * 3, 100)
+        self.fc2 = nn.Linear(100, 30)
+        self.fc3 = nn.Linear(30, self.classN)
 
     def residualLayer(self, indata, layer, batchNormFlag=False):
         incpConv = self.incpConv1
@@ -54,7 +54,7 @@ class CNN(nn.Module):
         x = self.residualLayer(x, layer=2)
 
         x = self.fullyConnectedLayer(x)
-        return x.view(-1, 3)
+        return x.cpu().view(-1, 3)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
