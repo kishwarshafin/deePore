@@ -54,7 +54,7 @@ class CNN(nn.Module):
         x = self.residualLayer(x, layer=2)
 
         x = self.fullyConnectedLayer(x)
-        return x.cpu().view(-1, 3)
+        return x.view(-1, 3)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
