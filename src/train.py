@@ -79,7 +79,7 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(cnn.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
