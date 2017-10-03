@@ -135,7 +135,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.register("type", "bool", lambda v: v.lower() == "true")
     parser.add_argument(
-        "--test_file",
+        "--train_file",
         type=str,
         required=True,
         help="Training data description csv file."
@@ -175,6 +175,6 @@ if __name__ == '__main__':
     )
     FLAGS, unparsed = parser.parse_known_args()
 
-    train(FLAGS.test_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
+    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
 
 
