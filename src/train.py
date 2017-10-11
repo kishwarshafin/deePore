@@ -14,25 +14,72 @@ import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 
+def validate(csvFile, batchSize, gpu_mode, trained_model):
+    transformations = transforms.Compose([transforms.ToTensor()])
 
-def train(csvFile, batchSize, epochLimit, fileName):
+    validation_data = PileupDataset(csvFile, transformations)
+    validation_loader = DataLoader(validation_data,
+                             batch_size=batchSize,
+                             shuffle=True,
+                             num_workers=4,
+                             pin_memory=gpu_mode # CUDA only
+                             )
+    sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
+
+    model = trained_model.eval()
+    if gpu_mode:
+        model = model.cuda()
+
+    # Loss and Optimizer
+    criterion = nn.CrossEntropyLoss()
+
+    # Train the Model
+    sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
+    total_loss = 0
+    total_images = 0
+    for i, (images, labels) in enumerate(validation_loader):
+        images = Variable(images)
+        labels = Variable(labels)
+        if gpu_mode:
+            images = images.cuda()
+            labels = labels.cuda()
+
+        for row in range(images.size(2)):
+            # segmentation of image. Currently using 1xCoverage
+            x = images[:, :, row:row + 1, :]
+            y = labels[:, row]
+
+            # Forward + Backward + Optimize
+            outputs = model(x)
+            loss = criterion(outputs.cpu(), y.cpu())
+
+            # loss count
+            total_images += batchSize
+            total_loss += loss.data[0]
+
+    print('Validation Loss: ' + str(total_loss/total_images) + "\n")
+    sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
+
+def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
-    trainDset = PileupDataset(csvFile, transformations)
+    trainDset = PileupDataset(train_file, transformations)
     trainLoader = DataLoader(trainDset,
                              batch_size=batchSize,
                              shuffle=True,
-                             num_workers=4
-                             # pin_memory=True # CUDA only
+                             num_workers=4,
+                             pin_memory=gpu_mode # CUDA only
                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     cnn = CNN()
+    if gpu_mode:
+        cnn = cnn.cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(cnn.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -42,6 +89,9 @@ def train(csvFile, batchSize, epochLimit, fileName):
         for i, (images, labels) in enumerate(trainLoader):
             images = Variable(images)
             labels = Variable(labels)
+            if gpu_mode:
+                images = images.cuda()
+                labels = labels.cuda()
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
@@ -51,20 +101,22 @@ def train(csvFile, batchSize, epochLimit, fileName):
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = cnn(x)
-                loss = criterion(outputs, y)
+                loss = criterion(outputs.cpu(), y.cpu())
                 loss.backward()
                 optimizer.step()
 
                 # loss count
                 total_images += batchSize
-                total_loss += loss
+                total_loss += loss.data[0]
 
-            if (i+1) % 100 == 0:
-                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
-                sys.stderr.write("Loss: " + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
-
+            # if (i+1) % 1 == 0:
+            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
+            sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
+            print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
+        print('Validation Loss: ', end='')
+        validate(validation_file, batchSize, gpu_mode, cnn)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss.data[0]/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
 
@@ -83,7 +135,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.register("type", "bool", lambda v: v.lower() == "true")
     parser.add_argument(
-        "--csv_file",
+        "--train_file",
+        type=str,
+        required=True,
+        help="Training data description csv file."
+    )
+    parser.add_argument(
+        "--validation_file",
         type=str,
         required=True,
         help="Training data description csv file."
@@ -109,8 +167,14 @@ if __name__ == '__main__':
         default='./CNN',
         help="Path and filename to save model, default is ./CNN"
     )
+    parser.add_argument(
+        "--gpu_mode",
+        type=bool,
+        default=False,
+        help="If true then cuda is on."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    train(FLAGS.csv_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out)
+    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
 
 

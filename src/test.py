@@ -12,7 +12,7 @@ from modules.dataset import PileupDataset, TextColor
 import sys
 
 
-def test(csvFile, batchSize, modelPath):
+def test(csvFile, batchSize, modelPath, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -21,13 +21,15 @@ def test(csvFile, batchSize, modelPath):
     testloader = DataLoader(test_dset,
                             batch_size=batchSize,
                             shuffle=False,
-                            num_workers=4
-                            # pin_memory=True # CUDA only
+                            num_workers=4,
+                            pin_memory=gpu_mode # CUDA only
                             )
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     cnn = torch.load(modelPath)
+    if gpu_mode:
+        cnn = cnn.cuda()
     cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     correct = 0
@@ -40,13 +42,15 @@ def test(csvFile, batchSize, modelPath):
     correct_homalt = 0
 
     for counter, (images, labels) in enumerate(testloader):
-        images = Variable(images)
+        images = Variable(images, volatile=True)
         pl = labels
+        if gpu_mode:
+            images = images.cuda()
 
         for row in range(images.size(2)):
             x = images[:, :, row:row + 1, :]
             ypl = pl[:, row]
-            outputs = cnn(x)
+            outputs = cnn(x).cpu()
 
             _, predicted = torch.max(outputs.data, 1)
             for i, target in enumerate(ypl):
@@ -110,8 +114,14 @@ if __name__ == '__main__':
         default='./CNN.pkl',
         help="Saved model path."
     )
+    parser.add_argument(
+        "--gpu_mode",
+        type=bool,
+        default=False,
+        help="If true then cuda is on."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path)
+    test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode)
 
 
