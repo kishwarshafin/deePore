@@ -99,6 +99,10 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
         total_images = 0
         total_could_be = 0
         for i, (images, labels) in enumerate(trainLoader):
+
+            if images.size(0) % 8 != 0:
+                continue
+
             images = Variable(images)
             labels = Variable(labels)
             if gpu_mode:
