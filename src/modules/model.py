@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 # CNN Model (2 conv layer)
 class CNN(nn.Module):
-    def __init__(self, inChannel=1, outChannel=256, coverageDepth=34, classN=3):
+    def __init__(self, inChannel=1, outChannel=256, coverageDepth=34, classN=3, window_size=1):
         super(CNN, self).__init__()
         self.inChannel = inChannel
         self.outChannel = outChannel
@@ -20,7 +20,7 @@ class CNN(nn.Module):
                                stride=(1, 3))
         self.conv3 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False)
         # -----FCL----- #
-        self.fc1 = nn.Linear(outChannel * coverageDepth * 3, 100)
+        self.fc1 = nn.Linear(outChannel * coverageDepth * 3 * window_size, 100)
         self.fc2 = nn.Linear(100, 30)
         self.fc3 = nn.Linear(30, self.classN)
 
@@ -52,9 +52,11 @@ class CNN(nn.Module):
         x = self.residualLayer(x, layer=0, batchNormFlag=True)
         x = self.residualLayer(x, layer=1)
         x = self.residualLayer(x, layer=2)
+        x = self.residualLayer(x, layer=3)
+        x = self.residualLayer(x, layer=4)
 
         x = self.fullyConnectedLayer(x)
-        return x.cpu().view(-1, 3)
+        return x.view(-1, 3)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension

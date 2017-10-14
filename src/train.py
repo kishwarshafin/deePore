@@ -40,6 +40,9 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
     total_loss = 0
     total_images = 0
     for i, (images, labels) in enumerate(validation_loader):
+        if gpu_mode is True and images.size(0) % 8 != 0:
+            continue
+
         images = Variable(images)
         labels = Variable(labels)
         if gpu_mode:
@@ -53,7 +56,7 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
 
             # Forward + Backward + Optimize
             outputs = model(x)
-            loss = criterion(outputs.cpu(), y.cpu())
+            loss = criterion(outputs, y)
 
             # loss count
             total_images += batchSize
@@ -100,7 +103,8 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
         total_could_be = 0
         for i, (images, labels) in enumerate(trainLoader):
 
-            if images.size(0) % 8 != 0:
+            # if batch size not distributable among all GPUs then skip
+            if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
 
             images = Variable(images)
@@ -111,11 +115,12 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
-               # (l, r) = get_window(row, 5, images.size(2))
+                # (l, r) = get_window(row, 5, images.size(2))
                 x = images[:, :, row:row+1, :]
                 y = labels[:, row]
                 sum = torch.sum(y).data[0]
                 total_could_be += batchSize
+
                 if sum == 0 and random.uniform(0, 1)*100 > 5:
                     continue
                 elif sum/batchSize < 0.02 and sum/batchSize > random.uniform(0, 1):
@@ -124,7 +129,7 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = cnn(x)
-                loss = criterion(outputs.cpu(), y.cpu())
+                loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
 
