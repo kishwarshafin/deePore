@@ -10,7 +10,7 @@ from scipy import misc
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import sys
-
+import torchnet.meter as meter
 
 def test(csvFile, batchSize, modelPath, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -32,15 +32,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
         cnn = cnn.cuda()
     cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    correct = 0
-    total = 0
-    total_hom = 0
-    total_het = 0
-    total_homalt = 0
-    correct_hom = 0
-    correct_het = 0
-    correct_homalt = 0
-
+    confusion_matrix = meter.ConfusionMeter(3)
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
@@ -50,42 +42,10 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
         for row in range(images.size(2)):
             x = images[:, :, row:row + 1, :]
             ypl = pl[:, row]
-            outputs = cnn(x).cpu()
+            preds = cnn(x)
 
-            _, predicted = torch.max(outputs.data, 1)
-            for i, target in enumerate(ypl):
-                t_tensor = torch.LongTensor([ypl[i]])
-                p_tensor = torch.LongTensor([predicted[i]])
-                if target == 0:
-                    total_hom += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_hom += 1
-                        correct += 1
-                elif target == 1:
-                    total_het += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_het += 1
-                        correct += 1
-                elif target == 2:
-                    total_homalt += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_homalt += 1
-                        correct += 1
-                total += 1
-
-        if (counter+1) % 100 == 0:
-            sys.stderr.write(TextColor.BLUE + " Batches done: " + str(counter+1) + TextColor.END)
-
-    print('Total hom: ', total_hom, 'Correctly predicted: ', correct_hom, 'Accuracy: ', correct_hom / total_hom * 100)
-    print('Total het: ', total_het, 'Correctly predicted: ', correct_het, 'Accuracy: ', correct_het / total_het * 100)
-    print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
-          correct_homalt / total_homalt * 100)
-
-    print("Test Accuracy of the model on the test images:", (100 * correct / total))
-    print("Most populated class: ", total_hom/total * 100)
+            confusion_matrix.add(preds.data.squeeze(), ypl.type(torch.LongTensor))
+    print(confusion_matrix.conf)
 
 
 

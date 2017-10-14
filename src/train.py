@@ -13,6 +13,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
+import random
+
 
 def validate(csvFile, batchSize, gpu_mode, trained_model):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -21,7 +23,7 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
     validation_loader = DataLoader(validation_data,
                              batch_size=batchSize,
                              shuffle=True,
-                             num_workers=4,
+                             num_workers=16,
                              pin_memory=gpu_mode # CUDA only
                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
@@ -57,8 +59,17 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
             total_images += batchSize
             total_loss += loss.data[0]
 
-    print('Validation Loss: ' + str(total_loss/total_images) + "\n")
+    print('Validation Loss: ' + str(total_loss/total_images))
     sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
+
+
+def get_window(index, window_size, length):
+    if index - window_size < 0:
+        return 0, index + window_size + (window_size-index)
+    elif index + window_size >= length:
+        return index - window_size - (window_size - (length - index)), length
+    return index - window_size, index + window_size
+
 
 def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -69,7 +80,7 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
                              batch_size=batchSize,
                              shuffle=True,
                              num_workers=4,
-                             pin_memory=gpu_mode # CUDA only
+                             pin_memory=gpu_mode
                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
@@ -86,6 +97,7 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
     for epoch in range(epochLimit):
         total_loss = 0
         total_images = 0
+        total_could_be = 0
         for i, (images, labels) in enumerate(trainLoader):
             images = Variable(images)
             labels = Variable(labels)
@@ -95,8 +107,15 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row + 1, :]
+               # (l, r) = get_window(row, 5, images.size(2))
+                x = images[:, :, row:row+1, :]
                 y = labels[:, row]
+                sum = torch.sum(y).data[0]
+                total_could_be += batchSize
+                if sum == 0 and random.uniform(0, 1)*100 > 5:
+                    continue
+                elif sum/batchSize < 0.02 and sum/batchSize > random.uniform(0, 1):
+                    continue
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
@@ -109,22 +128,24 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
                 total_images += batchSize
                 total_loss += loss.data[0]
 
-            # if (i+1) % 1 == 0:
+
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
-        print('Validation Loss: ', end='')
+
+        # After each epoch do validation
         validate(validation_file, batchSize, gpu_mode, cnn)
+        sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        torch.save(cnn, fileName + '_checkpoint_' + str(epoch) + '.pkl')
+        torch.save(cnn.state_dict(), fileName + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
-
-    torch.save(cnn, fileName+'.pkl')
+    torch.save(cnn, fileName+'_final.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + fileName + '.pkl\n' + TextColor.END)
-
-    torch.save(cnn.state_dict(), fileName+'-params'+'.pkl')
+    torch.save(cnn.state_dict(), fileName+'_final_params'+'.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + fileName + '-params.pkl\n' + TextColor.END)
 
