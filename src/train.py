@@ -86,7 +86,7 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
 
     cnn = CNN()
     if gpu_mode:
-        cnn = cnn.cuda()
+        cnn = torch.nn.DataParallel(cnn).cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
