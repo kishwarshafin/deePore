@@ -16,15 +16,15 @@ from modules.dataset import PileupDataset, TextColor
 import random
 
 
-def validate(csvFile, batchSize, gpu_mode, trained_model):
+def validate(data_file, batch_size, gpu_mode, trained_model):
     transformations = transforms.Compose([transforms.ToTensor()])
 
-    validation_data = PileupDataset(csvFile, transformations)
+    validation_data = PileupDataset(data_file, transformations)
     validation_loader = DataLoader(validation_data,
-                                   batch_size=batchSize,
+                                   batch_size=batch_size,
                                    shuffle=True,
                                    num_workers=16,
-                                   pin_memory=gpu_mode#CUDA only
+                                   pin_memory=gpu_mode
                                    )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
@@ -59,7 +59,7 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
             loss = criterion(outputs, y)
 
             # loss count
-            total_images += batchSize
+            total_images += batch_size
             total_loss += loss.data[0]
 
     print('Validation Loss: ' + str(total_loss/total_images))
@@ -74,34 +74,34 @@ def get_window(index, window_size, length):
     return index - window_size, index + window_size
 
 
-def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode):
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
-    trainDset = PileupDataset(train_file, transformations)
-    trainLoader = DataLoader(trainDset,
-                             batch_size=batchSize,
-                             shuffle=True,
-                             num_workers=4,
-                             pin_memory=gpu_mode
-                             )
+    train_data_set = PileupDataset(train_file, transformations)
+    train_loader = DataLoader(train_data_set,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=16,
+                              pin_memory=gpu_mode
+                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = CNN()
+    model = CNN()
     if gpu_mode:
-        cnn = torch.nn.DataParallel(cnn).cuda()
+        model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
     criterion = nn.NLLLoss()
-    optimizer = torch.optim.SGD(cnn.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
-    for epoch in range(epochLimit):
+    for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
         total_could_be = 0
-        for i, (images, labels) in enumerate(trainLoader):
+        for i, (images, labels) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
@@ -119,22 +119,22 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
                 x = images[:, :, row:row+1, :]
                 y = labels[:, row]
                 sum = torch.sum(y).data[0]
-                total_could_be += batchSize
+                total_could_be += batch_size
 
                 if sum == 0 and random.uniform(0, 1)*100 > 5:
                     continue
-                elif sum/batchSize < 0.02 and sum/batchSize > random.uniform(0, 1):
+                elif sum/batch_size < 0.02 and sum/batch_size > random.uniform(0, 1):
                     continue
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
-                outputs = cnn(x)
+                outputs = model(x)
                 loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
 
                 # loss count
-                total_images += batchSize
+                total_images += batch_size
                 total_loss += loss.data[0]
 
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
@@ -142,20 +142,20 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
 
         # After each epoch do validation
-        validate(validation_file, batchSize, gpu_mode, cnn)
+        validate(validation_file, batch_size, gpu_mode, model)
         sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
-        torch.save(cnn, fileName + '_checkpoint_' + str(epoch) + '.pkl')
-        torch.save(cnn.state_dict(), fileName + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
+        torch.save(model, file_name + '_checkpoint_' + str(epoch) + '.pkl')
+        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
-    torch.save(cnn, fileName+'_final.pkl')
+    torch.save(model, file_name+'_final.pkl')
 
-    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + fileName + '.pkl\n' + TextColor.END)
-    torch.save(cnn.state_dict(), fileName+'_final_params'+'.pkl')
+    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '.pkl\n' + TextColor.END)
+    torch.save(model.state_dict(), file_name+'_final_params'+'.pkl')
 
-    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + fileName + '-params.pkl\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '-params.pkl\n' + TextColor.END)
 
 if __name__ == '__main__':
     '''
@@ -193,8 +193,8 @@ if __name__ == '__main__':
         "--model_out",
         type=str,
         required=False,
-        default='./CNN',
-        help="Path and filename to save model, default is ./CNN"
+        default='./model',
+        help="Path and file_name to save model, default is ./model"
     )
     parser.add_argument(
         "--gpu_mode",
