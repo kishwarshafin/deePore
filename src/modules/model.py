@@ -23,6 +23,7 @@ class CNN(nn.Module):
         self.fc1 = nn.Linear(outChannel * coverageDepth * 3 * window_size, 100)
         self.fc2 = nn.Linear(100, 30)
         self.fc3 = nn.Linear(30, self.classN)
+        self.fc4 = nn.LogSoftmax()
 
     def residualLayer(self, indata, layer, batchNormFlag=False):
         incpConv = self.incpConv1
@@ -56,7 +57,8 @@ class CNN(nn.Module):
         x = self.residualLayer(x, layer=4)
 
         x = self.fullyConnectedLayer(x)
-        return F.LogSoftmax(x.view(-1, 3))
+        x = self.fc4(x)
+        return x.view(-1, 3)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
