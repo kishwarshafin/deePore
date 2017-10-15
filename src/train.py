@@ -21,11 +21,11 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
 
     validation_data = PileupDataset(csvFile, transformations)
     validation_loader = DataLoader(validation_data,
-                             batch_size=batchSize,
-                             shuffle=True,
-                             num_workers=16,
-                             pin_memory=gpu_mode # CUDA only
-                             )
+                                   batch_size=batchSize,
+                                   shuffle=True,
+                                   num_workers=16,
+                                   pin_memory=gpu_mode#CUDA only
+                                   )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     model = trained_model.eval()
@@ -33,7 +33,7 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
         model = model.cuda()
 
     # Loss and Optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.NLLLoss()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -43,8 +43,8 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
-        images = Variable(images)
-        labels = Variable(labels)
+        images = Variable(images, volatile=True)
+        labels = Variable(labels, volatile=True)
         if gpu_mode:
             images = images.cuda()
             labels = labels.cuda()
@@ -92,8 +92,8 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
         cnn = torch.nn.DataParallel(cnn).cuda()
 
     # Loss and Optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(cnn.parameters(), lr=0.001)
+    criterion = nn.NLLLoss()
+    optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -136,7 +136,6 @@ def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode
                 # loss count
                 total_images += batchSize
                 total_loss += loss.data[0]
-
 
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
