@@ -36,7 +36,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
     criterion = nn.NLLLoss()
 
     # Train the Model
-    sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
     for i, (images, labels) in enumerate(validation_loader):
@@ -115,15 +115,14 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
-                # (l, r) = get_window(row, 5, images.size(2))
                 x = images[:, :, row:row+1, :]
                 y = labels[:, row]
-                sum = torch.sum(y).data[0]
+                total_variation = torch.sum(y).data[0]
                 total_could_be += batch_size
 
-                if sum == 0 and random.uniform(0, 1)*100 > 5:
+                if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
-                elif sum/batch_size < 0.02 and sum/batch_size > random.uniform(0, 1):
+                elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
                     continue
 
                 # Forward + Backward + Optimize
