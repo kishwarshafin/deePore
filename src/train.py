@@ -33,7 +33,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
         model = model.cuda()
 
     # Loss and Optimizer
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
@@ -92,7 +92,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
@@ -107,8 +107,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
 
-            images = Variable(images)
-            labels = Variable(labels)
+            images = Variable(images, requires_grad=False)
+            labels = Variable(labels, requires_grad=False)
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
@@ -128,6 +128,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
+
                 loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
