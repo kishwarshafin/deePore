@@ -120,13 +120,6 @@ class CNN(nn.Module):
         return (Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()),
                 Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()))
 
-    def lstm_layer(self, input):
-        hidden = self.init_hidden(input.size(2))
-        for i in range(input.size(0)):
-            out, hidden = self.lstm1(input[i], hidden)
-            hidden = self.repackage_hidden(hidden)
-        return out
-
     def fully_connected_layer(self, x):
         batch_size = x.size(1)
         seq_length = x.size(0)
