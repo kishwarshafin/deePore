@@ -49,6 +49,7 @@ class BatchRNN(nn.Module):
 
         if self.batch_norm is not None:
             x = self.batch_norm(x)
+        self.rnn.flatten_parameters()
         x, _ = self.rnn(x)
         if self.bidirectional:
             x = x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
@@ -132,30 +133,21 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
-        #print('Input:', x.size())
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
         x = self.residual_layer(x, layer=3)
         x = self.residual_layer(x, layer=4)
-        #print('After CNN: ', x.size())
+
         sizes = x.size()
         x = x.view(sizes[0], sizes[1], sizes[3], sizes[2])
         sizes = x.size()
-        #print(x.size())
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
-        #print('Reshape: ', x.size())
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
-        #print('Before RNN:', x.size())
-        #exit()
 
-        #x = x.permute(1, 2, 0, 3)
         x = self.rnns(x)
-        #print('After RNN:', x.size())
 
         x = self.fc(x)
-        #print('After FC:', x.size())
         #x = self.inference_log_softmax(x)
-        #print('Final', x.size())
-        #exit()
+
         return x.view(-1, 3)

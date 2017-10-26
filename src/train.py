@@ -44,7 +44,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
             continue
 
         images = Variable(images, volatile=True)
-        labels = Variable(labels.int(), volatile=True)
+        labels = Variable(labels, volatile=True)
         if gpu_mode:
             images = images.cuda()
             labels = labels.cuda()
@@ -54,15 +54,10 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
             x = images[:, :, row:row + 1, :]
             y = labels[:, row]
 
-            target_sizes = torch.IntTensor(x.size(0)).zero_()
-            target_sizes = Variable(target_sizes, requires_grad=False) + 1
-
-            sizes = Variable(torch.IntTensor(x.size(0)).zero_(), requires_grad=False) + 1
-
             # Forward + Backward + Optimize
             outputs = model(x)
-            outputs = outputs.view(1, outputs.size(0), -1)
-            loss = criterion(outputs, y, sizes, target_sizes)
+            # outputs = outputs.view(1, outputs.size(0), -1)
+            loss = criterion(outputs, y)
 
             # loss count
             total_images += batch_size
@@ -115,7 +110,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 continue
 
             images = Variable(images, requires_grad=False)
-            labels = Variable(labels.int(), requires_grad=False)
+            labels = Variable(labels, requires_grad=False)
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
@@ -132,16 +127,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
                     continue
 
-                target_sizes = torch.IntTensor(x.size(0)).zero_()
-                target_sizes = Variable(target_sizes, requires_grad=False) + 1
-
-                sizes = Variable(torch.IntTensor(x.size(0)).zero_(), requires_grad=False) + 1
-
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
                 # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
-                loss = criterion(outputs, y, sizes, target_sizes)
+                loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
 
