@@ -14,7 +14,6 @@ import torch.optim as optim
 from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import random
-from warpctc_pytorch import CTCLoss
 
 
 def validate(data_file, batch_size, gpu_mode, trained_model):
@@ -34,7 +33,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
         model = model.cuda()
 
     # Loss and Optimizer
-    criterion = CTCLoss()
+    criterion = nn.CrossEntropyLoss()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
@@ -99,7 +98,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
-    criterion = CTCLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
@@ -141,7 +140,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
-                outputs = outputs.view(1, outputs.size(0), -1)
+                # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
                 loss = criterion(outputs, y, sizes, target_sizes)
                 loss.backward()
                 optimizer.step()
