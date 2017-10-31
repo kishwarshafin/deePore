@@ -14,6 +14,7 @@ import time
 from timeit import default_timer as timer
 import sys
 import os
+import SamPileupBMP
 """
 This program takes an alignment file (bam) and a reference file
 to create a sparse bitmap representation of the pileup. It uses
@@ -134,6 +135,7 @@ def getLabel(start, end):
             labelStr += str(0)
     return labelStr
 
+
 def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size):
     cnt = 0
     start_timer = timer()
@@ -145,8 +147,11 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
         end = rec.pos + window_size
         label = getLabel(start, end)
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
-        p = pileUpCreator(bamFile, refFile)
-        p.generatePileupLinear(reg, start, end, FLAGS.coverage, filename)
+        # RYAN'S CODE START
+        print(label)
+        p = SamPileupBMP.PileUpGenerator(bamFile, refFile)
+        p.generatePileup(chromosome=reg, position=rec.pos - 1, flankLength=window_size, outputFileName=filename)
+        # RYAN'S CODE END
         cnt += 1
         if cnt % 1000 == 0:
             end_timer = timer()
