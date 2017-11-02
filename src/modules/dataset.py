@@ -42,7 +42,7 @@ class PileupDataset(Dataset):
         for label in tmp_df[1]:
             label_list = [int(x) for x in str(label)]
             label_lists.append(np.array(label_list, dtype=np.int))
-        self.y_train = np.array(label_lists)
+        self.y_train = np.array(label_lists, dtype=np.int)
 
     def __getitem__(self, index):
 

@@ -1,65 +1,33 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import OrderedDict
 
-
-class SequenceWise(nn.Module):
-    def __init__(self, module):
-        """
-        Collapses input of dim T*N*H to (T*N)*H, and applies to a module.
-        Allows handling of variable sequence lengths and minibatch sizes.
-        :param module: Module to apply input to.
-        """
-        super(SequenceWise, self).__init__()
-        self.module = module
-
-    def forward(self, x):
-        t, n = x.size(0), x.size(1)
-        x = x.view(t * n, -1)
-        x = self.module(x)
-        x = x.view(t, n, -1)
-        return x
-
-    def __repr__(self):
-        tmpstr = self.__class__.__name__ + ' (\n'
-        tmpstr += self.module.__repr__()
-        tmpstr += ')'
-        return tmpstr
-
-
-class InferenceBatchLogSoftmax(nn.Module):
-    def forward(self, input_):
-        batch_size = input_.size()[0]
-        return torch.stack([F.log_softmax(input_[i]) for i in range(batch_size)], 0)
-
+use_cuda = False
 
 class BatchRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, rnn_type=nn.LSTM, bidirectional=False, batch_norm=True):
+    def __init__(self, input_size, hidden_size, rnn_type=nn.GRU, bidirectional=False):
         super(BatchRNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
-        self.batch_norm = SequenceWise(nn.BatchNorm1d(input_size)) if batch_norm else None
-        self.rnn = rnn_type(input_size=input_size, hidden_size=hidden_size,
-                            bidirectional=bidirectional, bias=False)
+        self.rnn = rnn_type(input_size=input_size, hidden_size=hidden_size)
         self.num_directions = 2 if bidirectional else 1
 
-    def forward(self, x):
-
-        if self.batch_norm is not None:
-            x = self.batch_norm(x)
+    def forward(self, input, h_input):
+        print('-----_HERE_--------')
         self.rnn.flatten_parameters()
-        x, _ = self.rnn(x)
+        output, hidden = self.rnn(input, h_input)
         if self.bidirectional:
-            x = x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
-        self.rnn.flatten_parameters()
-        return x
+            # (TxNxH*2) -> (TxNxH) by sum
+            output = output.view(output.size(0), output.size(1), 2, -1).sum(2).view(output.size(0), output.size(1), -1)
 
+        return output, hidden
 
-class CNN(nn.Module):
-    def __init__(self, input_channel=1, output_channel=256, coverage_depth=34, hidden_size=200, hidden_layer=3, class_n=3, bidirectional=True):
-        super(CNN, self).__init__()
+class EncoderCRNN(nn.Module):
+    def __init__(self, input_channel=1, output_channel=256, coverage_depth=34, hidden_size=500, hidden_layer=5, class_n=3, bidirectional=True):
+        super(EncoderCRNN, self).__init__()
         self.input_channel = input_channel
         self.output_channel = output_channel
         self.coverage_depth = coverage_depth
@@ -76,26 +44,9 @@ class CNN(nn.Module):
         self.conv2 = nn.Conv2d(output_channel, output_channel, (1, 3), padding=(0, self.coverage_depth * 3), bias=False, stride=(1, 3))
         self.conv3 = nn.Conv2d(output_channel, output_channel, (1, 1), bias=False)
         # -----RNN----- #
-        rnn_input_size = coverage_depth * 3 * output_channel
-        rnn_type = nn.LSTM
-        rnns = []
-        rnn = BatchRNN(input_size=rnn_input_size, hidden_size=hidden_size, rnn_type=rnn_type,
-                       bidirectional=bidirectional, batch_norm=False)
-        rnns.append(('0', rnn))
-        for x in range(hidden_layer - 1):
-            rnn = BatchRNN(input_size=hidden_size, hidden_size=hidden_size, rnn_type=rnn_type,
-                           bidirectional=bidirectional)
-            rnns.append(('%d' % (x + 1), rnn))
-        self.rnns = nn.Sequential(OrderedDict(rnns))
-        # -----FCL----- #
-        fully_connected = nn.Sequential(
-            nn.BatchNorm1d(hidden_size),
-            nn.Linear(hidden_size, class_n, bias=False)
-        )
-        self.fc = nn.Sequential(
-            SequenceWise(fully_connected),
-        )
-        self.inference_log_softmax = nn.LogSoftmax()
+        self.embedding = nn.Embedding(output_channel * 3 * coverage_depth, hidden_size)
+        self.gruInitial = nn.GRU(output_channel * 3 * coverage_depth, hidden_size)
+        self.gruRecurrent = nn.GRU(hidden_size, hidden_size)
 
     def residual_layer(self, input_data, layer, batch_norm_flag=False):
         incpConv = self.incpConv1 if layer != 0 else self.incpConv0
@@ -121,18 +72,7 @@ class CNN(nn.Module):
         return (Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()),
                 Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()))
 
-    def fully_connected_layer(self, x):
-        batch_size = x.size(1)
-        seq_length = x.size(0)
-        x = x.view([batch_size * seq_length, -1])
-
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        x = x.view([batch_size, seq_length, self.class_n])
-        return x
-
-    def forward(self, x):
+    def forward(self, x, hidden):
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
@@ -144,10 +84,125 @@ class CNN(nn.Module):
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
+        #x = x.view(x.size(0), -1)
 
-        x = self.rnns(x)
+        #print(x.size())
+        #print(type(x))
+        #embedded = self.embedding(Variable(x.data.long())).view(1, x.size(0), -1)
+        #output = embedded
+        #print(output.size())
+        #exit()
+        output, hidden = self.gruInitial(x, hidden)
+        for i in range(self.hidden_layer):
+            output, hidden = self.gruRecurrent(output, hidden)
 
-        x = self.fc(x)
-        #x = self.inference_log_softmax(x)
+        return output, hidden
 
-        return x.view(-1, 3)
+    def initHidden(self, batch_size):
+        result = Variable(torch.zeros(self.hidden_layer * self.direction, batch_size, self.hidden_size))
+        if use_cuda:
+            return result.cuda()
+        else:
+            return result
+
+class EncoderRNN(nn.Module):
+    def __init__(self, batch_size, input_size, hidden_size, n_layers=3):
+        super(EncoderRNN, self).__init__()
+        self.n_layers = n_layers
+        self.batch_size = batch_size
+        self.hidden_size = hidden_size
+        self.directions = 1
+
+        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.gruInitial = nn.GRU(input_size * hidden_size, hidden_size)
+        self.gruRecurrent = nn.GRU(hidden_size, hidden_size)
+
+    def forward(self, input, hidden):
+        self.batch_size = input.size(0)
+        embedded = self.embedding(Variable(input)).view(1, self.batch_size, -1)
+        output = embedded
+        output, hidden = self.gruInitial(output, hidden)
+        for i in range(self.n_layers):
+            output, hidden = self.gruRecurrent(output, hidden)
+        return output, hidden
+
+    def initHidden(self, batch_size):
+        result = Variable(torch.zeros(self.n_layers * self.directions, batch_size, self.hidden_size))
+        if use_cuda:
+            return result.cuda()
+        else:
+            return result
+
+
+####-----DECODER START-----#####
+class AttnDecoderRNN(nn.Module):
+    def __init__(self, batch_size, hidden_size, output_size, n_layers=3, dropout_p=0.1, max_length=51):
+        super(AttnDecoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.dropout_p = dropout_p
+        self.max_length = max_length
+        self.batch_size = batch_size
+
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size)
+        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.dropout = nn.Dropout(self.dropout_p)
+        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        self.out = nn.Linear(self.hidden_size, self.output_size)
+
+    def forward(self, input, hidden, encoder_outputs):
+        #print('Decoder')
+        self.batch_size = input.size(0)
+        embedded = self.embedding(input).view(1, self.batch_size, -1)
+        embedded = self.dropout(embedded)
+
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+        attn_weights = attn_weights.view([self.batch_size, 1, -1])
+        encoder_outputs = encoder_outputs.view([self.batch_size, self.max_length, -1])
+        attn_applied = torch.bmm(attn_weights, encoder_outputs)
+
+        embedded = embedded.view([self.batch_size, 1, -1])
+        output = torch.cat((embedded, attn_applied), 2).view([self.batch_size, -1])
+        output = self.attn_combine(output).unsqueeze(0)
+
+
+        for i in range(self.n_layers):
+            output = F.relu(output)
+            output, hidden = self.gru(output, hidden)
+        output = F.log_softmax(self.out(output[0]))
+        return output, hidden, attn_weights
+
+    def initHidden(self):
+        result = Variable(torch.zeros(1, 1, self.hidden_size))
+        if use_cuda:
+            return result.cuda()
+        else:
+            return result
+
+
+class SequenceWise(nn.Module):
+    def __init__(self, module):
+        """
+        Collapses input of dim T*N*H to (T*N)*H, and applies to a module.
+        Allows handling of variable sequence lengths and minibatch sizes.
+        :param module: Module to apply input to.
+        """
+        super(SequenceWise, self).__init__()
+        self.module = module
+
+    def forward(self, x, h):
+        t, n = x.size(0), x.size(1)
+        x = x.view(t * n, -1)
+        x = self.module(x)
+        x = x.view(t, n, -1)
+        return x, h
+
+    def __repr__(self):
+        tmpstr = self.__class__.__name__ + ' (\n'
+        tmpstr += self.module.__repr__()
+        tmpstr += ')'
+        return tmpstr
+
+
