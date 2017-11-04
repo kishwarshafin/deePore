@@ -58,7 +58,7 @@ class BatchRNN(nn.Module):
 
 
 class CNN(nn.Module):
-    def __init__(self, input_channel=1, output_channel=256, coverage_depth=34, hidden_size=200, hidden_layer=3, class_n=3, bidirectional=True):
+    def __init__(self, input_channel=1, output_channel=256, coverage_depth=34, hidden_size=500, hidden_layer=5, class_n=3, bidirectional=True):
         super(CNN, self).__init__()
         self.input_channel = input_channel
         self.output_channel = output_channel
@@ -88,14 +88,10 @@ class CNN(nn.Module):
             rnns.append(('%d' % (x + 1), rnn))
         self.rnns = nn.Sequential(OrderedDict(rnns))
         # -----FCL----- #
-        fully_connected = nn.Sequential(
-            nn.BatchNorm1d(hidden_size),
-            nn.Linear(hidden_size, class_n, bias=False)
-        )
-        self.fc = nn.Sequential(
-            SequenceWise(fully_connected),
-        )
-        self.inference_log_softmax = nn.LogSoftmax()
+        # self.fc1 = nn.Linear(hidden_size, 100)
+        self.fc1 = nn.Linear(coverage_depth * 3 * output_channel, 100)
+        self.fc2 = nn.Linear(100, 30)
+        self.fc3 = nn.Linear(30, self.class_n)
 
     def residual_layer(self, input_data, layer, batch_norm_flag=False):
         incpConv = self.incpConv1 if layer != 0 else self.incpConv0
@@ -108,18 +104,6 @@ class CNN(nn.Module):
         convOut3 = self.conv3(convOut2)
         x = F.relu(indataCp + convOut3)
         return x
-
-    def repackage_hidden(self, h):
-        """Wraps hidden states in new Variables, to detach them from their history."""
-        if type(h) == Variable:
-            return Variable(h.data)
-        else:
-            return tuple(self.repackage_hidden(v) for v in h)
-
-    def init_hidden(self, seq_len):
-        weight = next(self.parameters()).data
-        return (Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()),
-                Variable(weight.new(self.direction * self.hidden_layer, seq_len, self.hidden_size).zero_()))
 
     def fully_connected_layer(self, x):
         batch_size = x.size(1)
@@ -145,9 +129,11 @@ class CNN(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
-        x = self.rnns(x)
+        # x = self.rnns(x)
+        #print(x.size())
 
-        x = self.fc(x)
+        x = self.fully_connected_layer(x)
+        #print(x.size())
         #x = self.inference_log_softmax(x)
 
         return x.view(-1, 3)
