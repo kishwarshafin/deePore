@@ -21,6 +21,8 @@ pysam's pileup method and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
 allVariantRecord = {}
+markWeirdPositions = {}
+
 
 class pileUpCreator:
     '''
@@ -117,12 +119,26 @@ def getClassForGenotype(gtField):
     else:
         return 1 #heterozygous
 
+def getIndelLable(vcf_rec):
+    if vcf_rec.rlen > 1:
+        return 1
+    if len(vcf_rec.alleles) > 2:
+        return 1
+    if len(vcf_rec.alleles[0]) > 1:
+        return 1
+    if len(vcf_rec.alleles[1]) > 1:
+        return 1
+    return 0
+
+
 def populateRecordDictionary(vcf_region, vcfFile):
     vcf_in = VariantFile(vcfFile)
     for rec in vcf_in.fetch(vcf_region):
         gtField = str(rec).rstrip().split('\t')[-1].split(':')[0].replace('/', '|').replace('\\', '|').split('|')
         genotypeClass = getClassForGenotype(gtField)
+        indelLabbel = getIndelLable(rec)
         for i in range(rec.start, rec.stop):
+            markWeirdPositions[i] = indelLabbel
             allVariantRecord[i] = genotypeClass
 
 def getLabel(start, end):
@@ -143,6 +159,27 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
         reg = rec.chrom
         start = rec.pos - window_size - 1
         end = rec.pos + window_size
+
+        if rec.rlen > 1:
+            continue
+        if len(rec.alleles) > 2:
+            continue
+        if len(rec.alleles[0]) > 1:
+            continue
+        if len(rec.alleles[1]) > 1:
+            continue
+
+        flag = 0
+        for i in range(start, end):
+            if i in markWeirdPositions.keys() and markWeirdPositions[i] == 1:
+                flag = 1
+                break
+        if flag:
+            continue
+
+        #print(rec.alleles)
+        #print(rec.start, rec.stop)
+
         label = getLabel(start, end)
         filename = output_dir + rec.chrom + "-" + str(rec.pos)
         p = pileUpCreator(bamFile, refFile)
