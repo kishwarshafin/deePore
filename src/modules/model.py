@@ -88,8 +88,8 @@ class CNN(nn.Module):
             rnns.append(('%d' % (x + 1), rnn))
         self.rnns = nn.Sequential(OrderedDict(rnns))
         # -----FCL----- #
-        # self.fc1 = nn.Linear(hidden_size, 100)
-        self.fc1 = nn.Linear(coverage_depth * 3 * output_channel, 100)
+        self.fc1 = nn.Linear(hidden_size, 100)
+        # self.fc1 = nn.Linear(coverage_depth * 3 * output_channel, 100)
         self.fc2 = nn.Linear(100, 30)
         self.fc3 = nn.Linear(30, self.class_n)
 
@@ -129,7 +129,7 @@ class CNN(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
-        # x = self.rnns(x)
+        x = self.rnns(x)
         #print(x.size())
 
         x = self.fully_connected_layer(x)
