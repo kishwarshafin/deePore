@@ -1,15 +1,7 @@
 import argparse
-import pysam
 from pysam import VariantFile
-from bitarray import bitarray
-from sys import getsizeof
 import multiprocessing
 from multiprocessing import Process, Pool, TimeoutError, Array, Manager
-from PIL import Image
-import random
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import time
 from timeit import default_timer as timer
 import sys
@@ -30,7 +22,7 @@ def getClassForGenotype(gtField):
         else:
             return 2 #homozygous alt
     else:
-        return 1 #heterozygous
+        return 1 #heterozygous (single or double alt)
 
 def getGTField(rec):
     return str(rec).rstrip().split('\t')[-1].split(':')[0].replace('/', '|').replace('\\', '|').split('|')
@@ -38,14 +30,14 @@ def getGTField(rec):
 def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
     vcf_in = VariantFile(vcfFile)
     for rec in vcf_in.fetch(region="chr"+vcf_region):
-        gtField = getGTField(rec)
+        gtField = getGTField(rec)   # genotype according to the vcf
 
         genotypeClass = getClassForGenotype(gtField)
         if genotypeClass != 0 and rec.qual is not None and rec.qual > qualityCutoff:
             alleles = rec.alleles
             longestAllele = 0
 
-            for i in gtField: # find length of longest allele that was called as a variant
+            for i in gtField:   # find length of longest allele that was called as a variant
                 length = len(alleles[int(i)])
 
                 if length > longestAllele:
@@ -56,8 +48,8 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
 
 
 def getLabel(start, end):
-    labelStr = ''
-    variantLengths = dict()
+    labelStr = ''               # draft of the labelling string, assuming no inserts
+    variantLengths = dict()     # stores length of longest variant for labelling of inserts during pileup generation
 
     count = 0
     for j,i in enumerate(range(start, end)):
@@ -159,5 +151,5 @@ if __name__ == '__main__':
     generatePileupBasedonVCF(FLAGS.vcf_region, FLAGS.bam, FLAGS.ref, FLAGS.vcf, FLAGS.output_dir, FLAGS.window_size)
 
 
-# example usage
+# example usage:
 # python3 "deePore/src/utils/pileupGenerator.py" --bam "deePore/data/chr3_200k.bam" --ref "deePore/data/chr3.fa" --vcf "deePore/data/NA12878_S1.genome.vcf.gz" --region "chr3" --output_dir "deePore/data/test2/" --window_size 25 >deePore/data/stdout_final.txt

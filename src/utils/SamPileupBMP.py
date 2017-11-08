@@ -56,7 +56,7 @@ class Pileup:
                          'G': [0,1,1],
                          'T': [1,0,0],
                          'D': [1,0,1],
-                         'N': [0,0,0],  # redundant in case of read containing 'N', or uncalled bases
+                         'N': [0,0,0],  # redundant in case of read containing 'N'... should this be independent?
                self.noneChar: [0,0,0],}
 
         self.BMPtoSNP = [[['_', 'A'], ['C', 'G']], [['T', 'D'], [None, 'M']]]
@@ -119,6 +119,14 @@ class Pileup:
 
 
     def parseRead(self,r,read):
+        '''
+        Create a draft pileup representation of a read using cigar string and read data. This method iterates through
+        a read and its cigar string from the start (so it needs to be optimized for long reads).
+        :param r:
+        :param read:
+        :return:
+        '''
+
         refPositions = read.get_reference_positions()
 
         if len(refPositions) == 0:
@@ -205,16 +213,13 @@ class Pileup:
             encoding = self.SNPtoBMP['D']
 
         elif snp == 3:                                          # refskip (?)
-            encoding = self.SNPtoBMP['']
-        else:                                                   # something else?
+            encoding = self.SNPtoBMP['N']
+        else:                                                   # anything else
             print("WARNING: unencoded SNP: ", self.cigarLegend[snp]," at position ",self.relativeIndex)
 
         if snp < 4:
             for ridx in self.three:
                 self.pileupBMP[3*r+ridx][index] = encoding[ridx]
-            # self.pileupBMP[3*r+1][index] = encoding[1]
-            # self.pileupBMP[3*r+2][index] = encoding[2]
-
 
     def reconcileInserts(self):
         '''
@@ -235,19 +240,14 @@ class Pileup:
                 if r not in [insert[0] for insert in self.inserts[p]]:
                     # update the position based on previous inserts
                     pAdjusted = p+offsets[r]
-                    # pAdjusted *= 3
 
                     # add the insert to the pileup
                     for ridx in self.three:
                         self.pileupBMP[3*r+ridx] = self.pileupBMP[3*r+ridx][:pAdjusted]+[self.SNPtoBMP[self.noneChar][ridx]]*n+self.pileupBMP[3*r+ridx][pAdjusted:]
-                        # self.pileupBMP[3*r+1] = self.pileupBMP[3*r+1][:pAdjusted]+[self.SNPtoBMP[self.noneChar][1]]*n+self.pileupBMP[3*r+1][pAdjusted:]
-                        # self.pileupBMP[3*r+2] = self.pileupBMP[3*r+2][:pAdjusted]+[self.SNPtoBMP[self.noneChar][2]]*n+self.pileupBMP[3*r+2][pAdjusted:]
 
                     if i == 0:
                         # add the insert to the reference sequence and the label string
                         self.refSequence = self.refSequence[:int(pAdjusted)]+self.noneChar*n+self.refSequence[int(pAdjusted):]
-
-                        # print(self.variantLengths)
 
                         pVariant = p-1
                         if pVariant in self.variantLengths:                    # if the position is a variant site
@@ -271,11 +271,8 @@ class Pileup:
                         pAdjusted = p+offsets[r]+insertLength  # start adding insert chars after this insertion
                         nAdjusted = n-insertLength             # number of inserts to add
 
-                        # pAdjusted *= 3
                         for ridx in self.three:
                             self.pileupBMP[3*r+ridx] = self.pileupBMP[3*r+ridx][:pAdjusted]+[self.SNPtoBMP[self.noneChar][ridx]]*nAdjusted+self.pileupBMP[3*r+ridx][pAdjusted:]
-                            # self.pileupBMP[3*r+1] = self.pileupBMP[3*r+1][:pAdjusted]+[self.SNPtoBMP[self.noneChar][1]]*nAdjusted+self.pileupBMP[3*r+1][pAdjusted:]
-                            # self.pileupBMP[3*r+2] = self.pileupBMP[3*r+2][:pAdjusted]+[self.SNPtoBMP[self.noneChar][2]]*nAdjusted+self.pileupBMP[3*r+2][pAdjusted:]
 
                 offsets[r] += n     # <-- the magic happens here
 
@@ -290,8 +287,6 @@ class Pileup:
             triplet = self.SNPtoBMP[character]
             for ridx in self.three:
                 self.referenceBMP[ridx].append(triplet[ridx])
-                # self.referenceBMP[1].append(triplet[1])
-                # self.referenceBMP[2].append(triplet[2])
 
         self.pileupBMP = self.referenceBMP + self.pileupBMP
 
@@ -374,7 +369,6 @@ class PileUpGenerator:
         '''
 
         queryStart = position-flankLength
-        # regionLength = flankLength*2+1
 
         chromosome = str(chromosome)
 
@@ -393,11 +387,3 @@ class PileUpGenerator:
         # print(pileup.decodeBMP(outputFilename + ".bmp"))
 
         return pileup.getOutputLabel()
-
-
-# bamFile = "NA12878.np.chr3.100kb.0.bam"
-# fastaFile = "hg19.chr3.9mb.fa.txt"
-#
-# piler = PileUpGenerator(bamFile,fastaFile)
-# piler.generatePileup(chromosome=3,position=79005,flankLength=25)
-# piler.generatePileup(chromosome=3,position=99999+25,flankLength=25)
