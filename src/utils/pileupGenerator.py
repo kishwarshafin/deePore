@@ -66,13 +66,14 @@ def getLabel(start, end):
     return labelStr,variantLengths
 
 
-def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size, qualityCutoff=60):
+def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size, qualityCutoff=0):
     cnt = 0
     start_timer = timer()
     populateRecordDictionary(vcf_region, vcfFile)
     smry = open(output_dir + 'summary' + '-' + vcf_region + ".csv", 'w')
 
-    for rec in VariantFile(vcfFile).fetch(region="chr"+vcf_region+":77131-90000"):
+    for rec in VariantFile(vcfFile).fetch(region="chr"+vcf_region):
+        print(rec.qual, getGTField(rec))
         if rec.qual is not None and rec.qual > qualityCutoff and getClassForGenotype(getGTField(rec)) != '0':
             start = rec.pos - window_size - 1
             end = rec.pos + window_size
@@ -145,6 +146,12 @@ if __name__ == '__main__':
         "--window_size",
         type=int,
         default=100,
+        help="Window size of pileup."
+    )
+    parser.add_argument(
+        "--filter",
+        type=bool,
+        default=False,
         help="Window size of pileup."
     )
     FLAGS, unparsed = parser.parse_known_args()
