@@ -2,8 +2,7 @@ import pysam
 from pyfaidx import Fasta
 from collections import defaultdict
 from datetime import datetime
-from matplotlib import cm
-from matplotlib import image
+from PIL import Image
 from math import floor
 import sys
 
@@ -14,17 +13,18 @@ class Pileup:
     position, using the pysam and pyfaidx object provided by PileupGenerator
     '''
 
-    def __init__(self,sam,fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,subsampleRate=0,forceCoverage=True,coverageCutoff=50,arrayInitializationFactor=2):
+    def __init__(self,sam,fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,coverageCutoff,mapQualityCutoff,windowCutoff,subsampleRate=0,forceCoverage=False,arrayInitializationFactor=2):
         self.length = flankLength*2+1
         self.label = label
         self.variantLengths = variantLengths
         self.subsampleRate = subsampleRate
-        self.forceCoverage = forceCoverage
         self.coverageCutoff = coverageCutoff
         self.outputFilename = outputFilename
         self.queryStart = queryStart
         self.queryEnd = queryStart + self.length
         self.chromosome = chromosome
+        self.mapQualityCutoff = mapQualityCutoff
+        self.windowCutoff = windowCutoff
 
         # pysam uses 0-based coordinates
         self.localReads = sam.fetch("chr"+self.chromosome, start=self.queryStart, end=self.queryEnd)
@@ -33,13 +33,11 @@ class Pileup:
         self.coverage = sam.count("chr"+self.chromosome, start=self.queryStart, end=self.queryEnd)
         self.singleCoverage = sam.count("chr"+self.chromosome, start=self.queryStart+flankLength, end=self.queryStart+flankLength+1)
         self.refSequence = fasta.get_seq(name="chr"+self.chromosome, start=self.queryStart+1, end=self.queryEnd+1)
-        self.referenceBMP = [list() for i in range(3)]
+        self.referenceBMP = list()
 
         # stored during cigar string parsing to save time
         self.inserts = defaultdict(list)
 
-        # initialize array assuming length adjusted for insertion is < 2*reference length...
-        self.pileupBMP = [[0 for i in range(self.length*2)] for j in range(self.coverage*3)]
 
         self.deltaRef  = [1,0,1,1,0,0,0,0,0,0,0]    # key for whether reference advances
         self.deltaRead = [1,1,0,0,0,0,0,0,0,0,0]    # key for whether read sequence advances
@@ -50,20 +48,24 @@ class Pileup:
         self.noneChar = '_'     # character to use for empty positions in the pileup
         self.noneLabel = '3'      # character to use for (non variant called) inserts in the label
 
-        self.SNPtoBMP = {'M': [1,1,1],
-                         'A': [0,0,1],
-                         'C': [0,1,0],
-                         'G': [0,1,1],
-                         'T': [1,0,0],
-                         'D': [1,0,1],
-                         'N': [0,0,0],  # redundant in case of read containing 'N'... should this be independent?
-               self.noneChar: [0,0,0],}
+        self.SNPtoBMP = {'M': (255,255,255),
+                         'A': (255,0,  0),
+                         'C': (255,255,0),
+                         'G': (0,  255,0),
+                         'T': (0,  0,  255),
+                         'D': (0,  255,255),
+                         'N': (0,  0,  0),  # redundant in case of read containing 'N'... should this be independent?
+               self.noneChar: (0,  0,  0),}
 
-        self.BMPtoSNP = [[['_', 'A'], ['C', 'G']], [['T', 'D'], [None, 'M']]]
+        # initialize array using windowCutoff as the initial width
+        self.pileupBMP = [[self.SNPtoBMP[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverageCutoff)]
+
+
+        self.BMPtoSNP = [[[' ', 'A'], ['C', 'G']], [['T', 'D'], [None, '.']]]
 
         self.cigarLegend = ['M', 'I', 'D', 'N', 'S', 'H', 'P', '=', 'X', 'B', '?']  # ?=NM
 
-        self.three = range(3)   # used repeatedly, and in the inner loop
+        # self.three = range(3)   # used repeatedly, and in the inner loop
 
         self.cigarTuples = None
         self.refStart = None
@@ -95,27 +97,14 @@ class Pileup:
         pileup
         '''
 
-        if self.forceCoverage:
-            min = sys.maxsize
-            bestRate = None
-            for i in range(1,int(self.coverage/4)):     # sloppy... need better implementation
-                fraction = i/(i+1)
-                difference = abs(float(self.coverageCutoff)/self.coverage - fraction)
-
-                if difference < min:
-                    min = difference
-                    bestRate = i+1
-
-            self.subsampleRate = bestRate
-
+        index_iterator = 0
         for r, read in enumerate(self.localReads):
-            if self.subsampleRate > 0:
-                if r % self.subsampleRate != 0:
-                    r -= (floor(float(r)/self.subsampleRate) + 1)
-
-                    self.parseRead(r,read)
-            else:
-                self.parseRead(r,read)
+            if r == self.coverageCutoff:
+                break
+            if read.mapping_quality < self.mapQualityCutoff:
+                continue
+            self.parseRead(index_iterator, read)
+            index_iterator += 1
 
 
     def parseRead(self,r,read):
@@ -130,7 +119,7 @@ class Pileup:
         refPositions = read.get_reference_positions()
 
         if len(refPositions) == 0:
-            print("WARNING: read contains no reference alignments: ", read.query_name)
+            sys.stderr.write("WARNING: read contains no reference alignments: %s\n" % read.query_name)
         else:
             self.refStart = refPositions[0]
             self.refEnd = refPositions[-1]
@@ -214,12 +203,13 @@ class Pileup:
 
         elif snp == 3:                                          # refskip (?)
             encoding = self.SNPtoBMP['N']
+
         else:                                                   # anything else
-            print("WARNING: unencoded SNP: ", self.cigarLegend[snp]," at position ",self.relativeIndex)
+            sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
 
         if snp < 4:
-            for ridx in self.three:
-                self.pileupBMP[3*r+ridx][index] = encoding[ridx]
+            self.pileupBMP[r][index] = encoding  # Finally add the code to the pileup
+
 
     def reconcileInserts(self):
         '''
@@ -227,7 +217,7 @@ class Pileup:
          despite differences in insertion lengths among reads.
         '''
 
-        offsets = [0 for n in range(self.coverage)]
+        offsets = [0 for n in range(self.coverageCutoff)]
 
         for p in sorted(self.inserts.keys()):
             i = 0
@@ -236,14 +226,15 @@ class Pileup:
             longestInsert = sorted(self.inserts[p], key=lambda x: x[1], reverse=True)[0]
             n = longestInsert[1]    #length of the insert
 
-            for r in range(self.coverage):
+            for r in range(self.coverageCutoff):
                 if r not in [insert[0] for insert in self.inserts[p]]:
                     # update the position based on previous inserts
                     pAdjusted = p+offsets[r]
 
                     # add the insert to the pileup
-                    for ridx in self.three:
-                        self.pileupBMP[3*r+ridx] = self.pileupBMP[3*r+ridx][:pAdjusted]+[self.SNPtoBMP[self.noneChar][ridx]]*n+self.pileupBMP[3*r+ridx][pAdjusted:]
+                    # for ridx in self.three:
+                    self.pileupBMP[r] = self.pileupBMP[r][:pAdjusted]+[self.SNPtoBMP[self.noneChar]]*n+self.pileupBMP[r][pAdjusted:]
+
 
                     if i == 0:
                         # add the insert to the reference sequence and the label string
@@ -253,9 +244,10 @@ class Pileup:
                         if pVariant in self.variantLengths:                    # if the position is a variant site
                             l = self.variantLengths[pVariant] -1  # -1 for ref
                             if l >= n:                                  # correctly modify the label to fit the insert
-                                labelInsert = self.label[pVariant]*n     # using the length of the called variant at pos.
+                                labelInsert = self.label[pAdjusted-1]*n     # using the length of the called variant at pos.
                             else:
-                                labelInsert = self.label[pVariant]*l + self.noneLabel*(n-l)
+                                labelInsert = self.label[pAdjusted-1]*l + self.noneLabel*(n-l)
+
                         else:
                             labelInsert = self.noneLabel*n              # otherwise the insert is labeled with None code
 
@@ -271,8 +263,7 @@ class Pileup:
                         pAdjusted = p+offsets[r]+insertLength  # start adding insert chars after this insertion
                         nAdjusted = n-insertLength             # number of inserts to add
 
-                        for ridx in self.three:
-                            self.pileupBMP[3*r+ridx] = self.pileupBMP[3*r+ridx][:pAdjusted]+[self.SNPtoBMP[self.noneChar][ridx]]*nAdjusted+self.pileupBMP[3*r+ridx][pAdjusted:]
+                        self.pileupBMP[r] = self.pileupBMP[r][:pAdjusted]+[self.SNPtoBMP[self.noneChar]]*nAdjusted+self.pileupBMP[r][pAdjusted:]
 
                 offsets[r] += n     # <-- the magic happens here
 
@@ -285,10 +276,9 @@ class Pileup:
 
         for character in self.refSequence:
             triplet = self.SNPtoBMP[character]
-            for ridx in self.three:
-                self.referenceBMP[ridx].append(triplet[ridx])
+            self.referenceBMP.append(triplet)
 
-        self.pileupBMP = self.referenceBMP + self.pileupBMP
+        self.pileupBMP = [self.referenceBMP] + self.pileupBMP
 
 
     def savePileupBMP(self,filename):
@@ -298,21 +288,31 @@ class Pileup:
         :return:
         '''
 
-        self.pileupBMP = self.pileupBMP[:self.coverageCutoff*3]
 
-        if not filename.endswith(".bmp"):
-            filename += ".bmp"
+        # for row in self.pileupBMP:
+        #     print(row)
 
-        self.pileupBMP = [row[:self.length] for row in self.pileupBMP]
+        if not filename.endswith(".png"):
+            filename += ".png"
 
-        image.imsave(filename,self.pileupBMP,cmap=cm.gray)
+        self.pileupBMP = self.pileupBMP[:self.coverageCutoff]
+        self.pileupBMP = [row[:self.windowCutoff] for row in self.pileupBMP]
+
+        image = Image.new("RGB",(self.windowCutoff,self.coverageCutoff))
+        pixels = image.load()
+
+        for i in range(image.size[0]):
+            for j in range(image.size[1]):
+                pixels[i, j] = self.pileupBMP[j][i] if i < len(self.pileupBMP[j]) else self.SNPtoBMP[self.noneChar]
+
+        image.save(filename,"PNG")
 
 
     def getOutputLabel(self):
         return self.label
 
 
-    def decodeBMP(self,filename):
+    def decodeBMP(self,filename):   # fix function for RGB !!
         '''
         Read a BMP and convert to a text alignment
         :param filename:
@@ -360,7 +360,7 @@ class PileUpGenerator:
         self.fasta = Fasta(referenceFile,as_raw=True,sequence_always_upper=True)
 
 
-    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths):
+    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths,forceCoverage=False,coverageCutoff=100,mapQualityCutoff=20,windowCutoff=300):
         '''
         Generate a pileup at a given position
         :param queryStart:
@@ -373,17 +373,33 @@ class PileUpGenerator:
         chromosome = str(chromosome)
 
         # startTime = datetime.now()
-        pileup = Pileup(self.sam,self.fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths)
+        pileup = Pileup(self.sam,self.fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,windowCutoff=windowCutoff,forceCoverage=forceCoverage,coverageCutoff=coverageCutoff,mapQualityCutoff=mapQualityCutoff)
         # print(datetime.now() - startTime, "initialized")
         pileup.iterateReads()
         # print(datetime.now() - startTime, "drafted")
         pileup.reconcileInserts()
         # print(datetime.now() - startTime, "finalized")
         pileup.encodeReference()
-        pileup.savePileupBMP(outputFilename + ".bmp")
+        pileup.savePileupBMP(outputFilename)
         # print(datetime.now() - startTime, "encoded and saved")
 
         # print(pileup.label)
         # print(pileup.decodeBMP(outputFilename + ".bmp"))
 
         return pileup.getOutputLabel()
+
+#
+# bamFile = "deePore/data/chr3_200k.bam"
+# fastaFile = "deePore/data/chr3.fa"
+#
+# vcf_region = "3"
+# window_size = 25
+# filename = "deePore/data/training_chr3_350/"
+# labelString = '0'*51
+# variantLengths = dict()
+# position = 111945
+#
+# piler = PileUpGenerator(bamFile,fastaFile)
+# outputLabelString = piler.generatePileup(chromosome=vcf_region, position=position, flankLength=window_size,
+#                                      outputFilename=filename, label=labelString, variantLengths=variantLengths,forceCoverage=True,coverageCutoff=50)
+
