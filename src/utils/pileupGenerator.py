@@ -49,26 +49,28 @@ class pileUpCreator:
         :return:
         '''
         region_bam = "chr" + region
-        img = Image.new('1', (end - start, coverage * 3))
+        img = Image.new("RGB", (end - start, coverage))
         reference = self.refFile.fetch(region_bam, start, end)
         pixels = img.load()
+
         i = 0
         for pileupcolumn in self.samFile.pileup(region_bam, start, end, truncate=True):
             columnList = []
             ref_base = str(reference[pileupcolumn.pos - start]).upper()
             for pileupread in pileupcolumn.pileups:
-                binaryList = [1, 0, 0]
+                binaryList = (0, 0, 0)
                 if not pileupread.is_del and not pileupread.is_refskip:
                     pileup_base = str(pileupread.alignment.query_sequence[pileupread.query_position]).upper()
-                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse, pileupcolumn.pos)
-                columnList.extend(binaryList)
+                    binaryList = self.getEncodingForBase(pileup_base, ref_base, pileupread.alignment.is_reverse)
+                columnList.append(binaryList)
             for j in range(img.size[1]):
-                pixels[i, j] = int(columnList[j]) if j<len(columnList) else 0
+                pixels[i, j] = columnList[j] if j<len(columnList) else (0, 0, 0)
+                #print(pixels[i, j])
             i += 1
         img = img.transpose(Image.TRANSPOSE)
-        img.save(imgFilename + ".bmp")
+        img.save(imgFilename + ".png", "PNG")
 
-    def getEncodingForBase(self, base, ref_base , reverse_flag, pos):
+    def getEncodingForBase(self, base, ref_base , reverse_flag):
         '''
         Returns binary encoding given a base and it's corresponding
         reference base. The reverse flag is used to determine if the
@@ -80,19 +82,19 @@ class pileUpCreator:
         '''
         enChar = base.upper()
         if base==ref_base:
-            return [0, 0, 0]
+            return (255, 255, 255)
         elif enChar=='A':
-            return [0, 0, 1]
-        elif enChar=='C':
-            return [0, 1, 0]
+            return (255, 0, 0)
         elif enChar=='G':
-            return [0, 1, 1]
+            return (0, 255, 0)
         elif enChar=='T':
-            return [1, 0, 0]
+            return (0, 0, 255)
+        elif enChar=='C':
+            return (255, 255, 0)
         elif enChar=='*':
-            return [1, 0, 1]
+            return (255, 0, 255)
         else:
-            return [1, 1, 0]
+            return (0, 0, 0)
 
     def closeSamFile(self):
         '''
@@ -150,6 +152,7 @@ def getLabel(start, end):
             labelStr += str(0)
     return labelStr
 
+
 def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, window_size):
     cnt = 0
     start_timer = timer()
@@ -189,8 +192,7 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
             end_timer = timer()
             print(str(cnt) + " Records done", file=sys.stderr)
             print("TIME elapsed "+ str(end_timer - start_timer), file=sys.stderr)
-        smry.write(os.path.abspath(filename) + ".bmp," + str(label)+'\n')
-
+        smry.write(os.path.abspath(filename) + ".png," + str(label)+'\n')
 
 
 if __name__ == '__main__':
@@ -219,8 +221,8 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "--region",
-        type = str,
-        default = "chr3",
+        type=str,
+        default="chr3",
         help="Site region. Ex: chr3"
     )
     parser.add_argument(
