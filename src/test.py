@@ -7,7 +7,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 from scipy import misc
-from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import sys
 import torchnet.meter as meter
@@ -33,15 +32,20 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
     cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     confusion_matrix = meter.ConfusionMeter(3)
+    seq_len = 2
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
         if gpu_mode:
             images = images.cuda()
 
-        for row in range(images.size(2)):
-            x = images[:, :, row:row + 1, :]
-            ypl = pl[:, row]
+        for row in range(0, images.size(2), seq_len):
+            if row + seq_len > images.size(2):
+                seq_len = images.size(2) - row
+
+            x = images[:, :, row:row + seq_len, :]
+            ypl = pl[:, row:row+seq_len]
+            ypl = ypl.contiguous().view(-1)
             preds = cnn(x)
 
             confusion_matrix.add(preds.data.squeeze(), ypl.type(torch.LongTensor))

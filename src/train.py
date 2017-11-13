@@ -11,12 +11,12 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import CNN
+from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 
 
-def validate(data_file, batch_size, gpu_mode, trained_model):
+def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -51,13 +51,13 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
 
         for row in range(images.size(2)):
             # segmentation of image. Currently using 1xCoverage
-            x = images[:, :, row:row + 1, :]
-            y = labels[:, row]
+            x = images[:, :, row:row + seq_len, :]
+            y = labels[:, row:row+seq_len]
 
             # Forward + Backward + Optimize
             outputs = model(x)
             # outputs = outputs.view(1, outputs.size(0), -1)
-            loss = criterion(outputs, y)
+            loss = criterion(outputs, y.contiguous().view(-1))
 
             # loss count
             total_images += batch_size
@@ -76,6 +76,7 @@ def get_window(index, window_size, length):
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
+
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -88,17 +89,17 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = CNN()
+    model = Model()
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
-
+    seq_len = 2
     for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
@@ -117,21 +118,35 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row+1, :]
-                y = labels[:, row]
+                if row+seq_len > images.size(2):
+                    seq_len = images.size(2) - row
+
+                x = images[:, :, row:row+seq_len, :]
+                y = labels[:, row:row+seq_len]
+
+
 
                 total_variation = torch.sum(y).data[0]
                 total_could_be += batch_size
+                #print(total_variation)
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
                 elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
                     continue
+                # print(x)
+                # print(y)
+                # exit()
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
+
+                # print(outputs)
+                # print(y.contiguous().view(-1))
+                # exit()
                 # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
+                y = pack_padded_sequence(captions, lengths, batch_first=True)[0]
                 loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
@@ -145,7 +160,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
 
         # After each epoch do validation
-        validate(validation_file, batch_size, gpu_mode, model)
+        validate(validation_file, batch_size, gpu_mode, model, seq_len)
         sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
