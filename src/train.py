@@ -39,7 +39,9 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
     sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
+
     for i, (images, labels) in enumerate(validation_loader):
+        hidden = model.init_hidden(images.size(0))
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
@@ -49,15 +51,16 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
             images = images.cuda()
             labels = labels.cuda()
 
-        for row in range(images.size(2)):
+        for row in range(0, images.size(2), seq_len):
             # segmentation of image. Currently using 1xCoverage
             x = images[:, :, row:row + seq_len, :]
             y = labels[:, row:row+seq_len]
 
             # Forward + Backward + Optimize
-            outputs = model(x)
+            outputs = model(x, hidden)
+            hidden = repackage_hidden(hidden)
             # outputs = outputs.view(1, outputs.size(0), -1)
-            loss = criterion(outputs, y.contiguous().view(-1))
+            loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
 
             # loss count
             total_images += batch_size
@@ -73,6 +76,14 @@ def get_window(index, window_size, length):
     elif index + window_size >= length:
         return index - window_size - (window_size - (length - index)), length
     return index - window_size, index + window_size
+
+
+def repackage_hidden(h):
+    """Wraps hidden states in new Variables, to detach them from their history."""
+    if type(h) == Variable:
+        return Variable(h.data)
+    else:
+        return tuple(self.repackage_hidden(v) for v in h)
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
@@ -99,13 +110,14 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
-    seq_len = 2
+    seq_len = 3
+
     for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
         total_could_be = 0
         for i, (images, labels) in enumerate(train_loader):
-
+            hidden = model.init_hidden(images.size(0))
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
@@ -116,38 +128,46 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 images = images.cuda()
                 labels = labels.cuda()
 
-            for row in range(images.size(2)):
+            for row in range(0, images.size(2), seq_len):
                 # segmentation of image. Currently using 1xCoverage
                 if row+seq_len > images.size(2):
-                    seq_len = images.size(2) - row
+                    continue
+                    # seq_len = images.size(2) - row
+                else:
+                    seq_len = 3
 
+                if seq_len != 3:
+                    print(seq_len)
                 x = images[:, :, row:row+seq_len, :]
                 y = labels[:, row:row+seq_len]
 
-
-
                 total_variation = torch.sum(y).data[0]
                 total_could_be += batch_size
-                #print(total_variation)
+                # print(total_variation)
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
                 elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
                     continue
+
                 # print(x)
                 # print(y)
                 # exit()
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
-                outputs = model(x)
-
-                # print(outputs)
+                outputs = model(x, hidden)
+                hidden = repackage_hidden(hidden)
+                # print('Label: ', y.data[0])
+                # print('Values:', outputs.data[0])
                 # print(y.contiguous().view(-1))
                 # exit()
                 # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
-                y = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-                loss = criterion(outputs, y)
+
+                loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
+                # print(outputs.contiguous().view(-1, 3).size())
+                # print(y.contiguous().view(-1).size())
+                # exit()
                 loss.backward()
                 optimizer.step()
 
