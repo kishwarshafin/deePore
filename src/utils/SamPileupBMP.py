@@ -5,7 +5,11 @@ from datetime import datetime
 from PIL import Image
 from math import floor
 import sys
-
+import numpy
+"""
+This  module takes an alignment file and produces a pileup across all alignments in a query region, and encodes the
+pileup as an image where each x pixel corresponds to a positi
+"""
 
 class Pileup:
     '''
@@ -33,11 +37,10 @@ class Pileup:
         self.coverage = sam.count("chr"+self.chromosome, start=self.queryStart, end=self.queryEnd)
         self.singleCoverage = sam.count("chr"+self.chromosome, start=self.queryStart+flankLength, end=self.queryStart+flankLength+1)
         self.refSequence = fasta.get_seq(name="chr"+self.chromosome, start=self.queryStart+1, end=self.queryEnd+1)
-        self.referenceBMP = list()
+        self.referenceRGB = list()
 
         # stored during cigar string parsing to save time
         self.inserts = defaultdict(list)
-
 
         self.deltaRef  = [1,0,1,1,0,0,0,0,0,0,0]    # key for whether reference advances
         self.deltaRead = [1,1,0,0,0,0,0,0,0,0,0]    # key for whether read sequence advances
@@ -45,10 +48,10 @@ class Pileup:
 
         self.deltaRefRelative  = [1,0,1,0,0,0,0,0,0,0,0]    # key for whether reference advances (for match comparison within query region)
 
-        self.noneChar = '_'     # character to use for empty positions in the pileup
+        self.noneChar = '_'       # character to use for empty positions in the pileup
         self.noneLabel = '3'      # character to use for (non variant called) inserts in the label
 
-        self.SNPtoBMP = {'M': (255,255,255),
+        self.SNPtoRGB = {'M': (255,255,255),
                          'A': (255,0,  0),
                          'C': (255,255,0),
                          'G': (0,  255,0),
@@ -57,11 +60,10 @@ class Pileup:
                          'N': (0,  0,  0),  # redundant in case of read containing 'N'... should this be independent?
                self.noneChar: (0,  0,  0),}
 
+        self.RGBtoSNP = [[[' ', 'T'], ['G', 'D']], [['A', None], ['C', '.']]]
+
         # initialize array using windowCutoff as the initial width
-        self.pileupBMP = [[self.SNPtoBMP[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverageCutoff)]
-
-
-        self.BMPtoSNP = [[[' ', 'A'], ['C', 'G']], [['T', 'D'], [None, '.']]]
+        self.pileupRGB = [[self.SNPtoRGB[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverageCutoff)]
 
         self.cigarLegend = ['M', 'I', 'D', 'N', 'S', 'H', 'P', '=', 'X', 'B', '?']  # ?=NM
 
@@ -78,17 +80,20 @@ class Pileup:
         self.relativeIndexRef = None
 
 
-    def generateBMPtoSNP(self):
+    def generateRGBtoSNP(self):
         '''
-        Generate inverse of SNPtoBMP automatically, from any SNPtoBMP dictionary
+        Generate inverse of SNPtoRGB automatically, from any SNPtoRGB dictionary
         :return:
         '''
 
-        self.BMPtoSNP = [[[None for i in range(2)] for j in range(2)] for k in range(2)]
+        self.RGBtoSNP = [[[None for i in range(2)] for j in range(2)] for k in range(2)]
 
-        for item in self.SNPtoBMP.items():
-            i1,i2,i3 = item[1]
-            self.BMPtoSNP[i1][i2][i3] = item[0]
+        for item in self.SNPtoRGB.items():
+            bits = [int(i/255) for i in item[1]]
+
+            print(bits)
+            i1,i2,i3 = bits
+            self.RGBtoSNP[i1][i2][i3] = item[0]
 
 
     def iterateReads(self):
@@ -129,8 +134,8 @@ class Pileup:
 
             self.readSequence = read.query_alignment_sequence
 
-            self.refPosition = 0  #
-            self.readPosition = -1  #
+            self.refPosition = 0
+            self.readPosition = -1
             self.relativeIndex = self.refStart-self.queryStart
             self.relativeIndexRef = 0
 
@@ -178,19 +183,19 @@ class Pileup:
         index = self.relativeIndex
         encoding = None
 
-        if snp == 0:                                            # match
+        if snp == 0:                                                # match
             nt = self.readSequence[self.readPosition]
             ntRef = self.refSequence[self.relativeIndexRef]
 
             if nt != ntRef:
-                encoding = self.SNPtoBMP[nt]
+                encoding = self.SNPtoRGB[nt]    # Mismatch (specify the alt)
             else:
-                encoding = self.SNPtoBMP['M']
+                encoding = self.SNPtoRGB['M']   # Match
 
-        elif snp == 1:                                          # insert
+        elif snp == 1:                                              # insert
             nt = self.readSequence[self.readPosition]
 
-            encoding = self.SNPtoBMP[nt]
+            encoding = self.SNPtoRGB[nt]
 
             if i == 0:      # record the insert for later
                 position = self.absolutePosition-self.queryStart
@@ -198,17 +203,17 @@ class Pileup:
 
             self.relativeIndex += 1
 
-        elif snp == 2:                                          # delete
-            encoding = self.SNPtoBMP['D']
+        elif snp == 2:                                              # delete
+            encoding = self.SNPtoRGB['D']
 
-        elif snp == 3:                                          # refskip (?)
-            encoding = self.SNPtoBMP['N']
+        elif snp == 3:                                              # refskip (?)
+            encoding = self.SNPtoRGB['N']
 
-        else:                                                   # anything else
+        else:                                                       # anything else
             sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
 
         if snp < 4:
-            self.pileupBMP[r][index] = encoding  # Finally add the code to the pileup
+            self.pileupRGB[r][index] = encoding  # Finally add the code to the pileup
 
 
     def reconcileInserts(self):
@@ -232,9 +237,7 @@ class Pileup:
                     pAdjusted = p+offsets[r]
 
                     # add the insert to the pileup
-                    # for ridx in self.three:
-                    self.pileupBMP[r] = self.pileupBMP[r][:pAdjusted]+[self.SNPtoBMP[self.noneChar]]*n+self.pileupBMP[r][pAdjusted:]
-
+                    self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB[self.noneChar]]*n+self.pileupRGB[r][pAdjusted:]
 
                     if i == 0:
                         # add the insert to the reference sequence and the label string
@@ -263,25 +266,25 @@ class Pileup:
                         pAdjusted = p+offsets[r]+insertLength  # start adding insert chars after this insertion
                         nAdjusted = n-insertLength             # number of inserts to add
 
-                        self.pileupBMP[r] = self.pileupBMP[r][:pAdjusted]+[self.SNPtoBMP[self.noneChar]]*nAdjusted+self.pileupBMP[r][pAdjusted:]
+                        self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB[self.noneChar]]*nAdjusted+self.pileupRGB[r][pAdjusted:]
 
                 offsets[r] += n     # <-- the magic happens here
 
 
     def encodeReference(self):
         '''
-        Encode the reference sequence into BMP triplets and add add it as the header line to the pileup BMP
+        Encode the reference sequence into RGB triplets and add add it as the header line to the pileup RGB
         :return:
         '''
 
         for character in self.refSequence:
-            triplet = self.SNPtoBMP[character]
-            self.referenceBMP.append(triplet)
+            triplet = self.SNPtoRGB[character]
+            self.referenceRGB.append(triplet)
 
-        self.pileupBMP = [self.referenceBMP] + self.pileupBMP
+        self.pileupRGB = [self.referenceRGB] + self.pileupRGB
 
 
-    def savePileupBMP(self,filename):
+    def savePileupRGB(self,filename):
         '''
         Save the pileup binary array as a bitmap image using a gray color map
         :param filename:
@@ -289,21 +292,18 @@ class Pileup:
         '''
 
 
-        # for row in self.pileupBMP:
-        #     print(row)
-
         if not filename.endswith(".png"):
             filename += ".png"
 
-        self.pileupBMP = self.pileupBMP[:self.coverageCutoff]
-        self.pileupBMP = [row[:self.windowCutoff] for row in self.pileupBMP]
+        self.pileupRGB = self.pileupRGB[:self.coverageCutoff]
+        self.pileupRGB = [row[:self.windowCutoff] for row in self.pileupRGB]
 
         image = Image.new("RGB",(self.windowCutoff,self.coverageCutoff))
         pixels = image.load()
 
         for i in range(image.size[0]):
             for j in range(image.size[1]):
-                pixels[i, j] = self.pileupBMP[j][i] if i < len(self.pileupBMP[j]) else self.SNPtoBMP[self.noneChar]
+                pixels[i, j] = self.pileupRGB[j][i] if i < len(self.pileupRGB[j]) else self.SNPtoRGB[self.noneChar]
 
         image.save(filename,"PNG")
 
@@ -312,39 +312,43 @@ class Pileup:
         return self.label
 
 
-    def decodeBMP(self,filename):   # fix function for RGB !!
+    def decodeRGB(self,filename):
         '''
-        Read a BMP and convert to a text alignment
+        Read a RGB and convert to a text alignment
         :param filename:
         :return:
         '''
 
-        bmp = image.imread(filename)
+        # mode = "RGB"
+        img = Image.open(filename)          # <-- switch this to RGBA
+        pixels = numpy.array(img.getdata())
         text = ''
 
-        width = int(len(bmp[0]))  # length of the decoded sequence
-        height = int(len(bmp)/3)
+        width,height = img.size
+        depth = 3
+
+        pixels = numpy.reshape(pixels,(height,width,depth))
 
         for h in range(height):
             for w in range(width):
-                rgb1,rgb2,rgb3 = [bmp[3*h+i][w] for i in range(0,3)]   # one vertical triplet is one character in pileup
+                r,g,b = pixels[h][w]
 
-                if rgb1[:3].all(0):
+                if r == 255:
                     i1 = 1
                 else:
                     i1 = 0
 
-                if rgb2[:3].all(0):
+                if g == 255:
                     i2 = 1
                 else:
                     i2 = 0
 
-                if rgb3[:3].all(0):
+                if b == 255:
                     i3 = 1
                 else:
                     i3 = 0
 
-                text += self.BMPtoSNP[i1][i2][i3]
+                text += self.RGBtoSNP[i1][i2][i3]
             text += '\n'
 
         return text
@@ -380,20 +384,22 @@ class PileUpGenerator:
         pileup.reconcileInserts()
         # print(datetime.now() - startTime, "finalized")
         pileup.encodeReference()
-        pileup.savePileupBMP(outputFilename)
+        pileup.savePileupRGB(outputFilename)
         # print(datetime.now() - startTime, "encoded and saved")
 
         # print(pileup.label)
-        # print(pileup.decodeBMP(outputFilename + ".bmp"))
+        # pileup.generateRGBtoSNP()
+        # print(pileup.RGBtoSNP)
+        # print(pileup.decodeRGB(outputFilename + ".png"))
 
         return pileup.getOutputLabel()
 
-#
+
 # bamFile = "deePore/data/chr3_200k.bam"
 # fastaFile = "deePore/data/chr3.fa"
 #
 # vcf_region = "3"
-# window_size = 25
+# window_size = 50
 # filename = "deePore/data/training_chr3_350/"
 # labelString = '0'*51
 # variantLengths = dict()
