@@ -14,7 +14,7 @@ the SamPileupBMP class and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
 allVariantRecord = {}
-subregion = ''
+subregion = ':77131-200000'
 
 def getClassForGenotype(gtField):
     if gtField[0] == gtField[-1]:
@@ -111,7 +111,7 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
                 end_timer = timer()
                 print(str(cnt) + " Records done", file=sys.stderr)
                 print("TIME elapsed "+ str(end_timer - start_timer), file=sys.stderr)
-            smry.write(os.path.abspath(filename) + ".bmp," + str(outputLabelString)+'\n')
+            smry.write(os.path.abspath(filename) + ".png," + str(outputLabelString)+'\n')
 
             if cnt > 350:
                 break

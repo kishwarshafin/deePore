@@ -6,9 +6,10 @@ from PIL import Image
 from math import floor
 import sys
 import numpy
+import copy
 """
 This  module takes an alignment file and produces a pileup across all alignments in a query region, and encodes the
-pileup as an image where each x pixel corresponds to a positi
+pileup as an image where each x pixel corresponds to a position and y corresponds to coverage depth
 """
 
 class Pileup:
@@ -36,7 +37,7 @@ class Pileup:
         # pyfaidx uses 1-based coordinates
         self.coverage = sam.count("chr"+self.chromosome, start=self.queryStart, end=self.queryEnd)
         self.singleCoverage = sam.count("chr"+self.chromosome, start=self.queryStart+flankLength, end=self.queryStart+flankLength+1)
-        self.refSequence = fasta.get_seq(name="chr"+self.chromosome, start=self.queryStart+1, end=self.queryEnd+1)
+        self.refSequence = fasta.get_seq(name="chr"+self.chromosome, start=self.queryStart+1, end=self.queryEnd)
         self.referenceRGB = list()
 
         # stored during cigar string parsing to save time
@@ -56,18 +57,17 @@ class Pileup:
                          'C': (255,255,0),
                          'G': (0,  255,0),
                          'T': (0,  0,  255),
+                         'I': (255,0,  255),
                          'D': (0,  255,255),
                          'N': (0,  0,  0),  # redundant in case of read containing 'N'... should this be independent?
                self.noneChar: (0,  0,  0),}
 
-        self.RGBtoSNP = [[[' ', 'T'], ['G', 'D']], [['A', None], ['C', '.']]]
+        self.RGBtoSNP = [[[' ', 'T'], ['G', 'D']], [['A', '_'], ['C', '.']]]
 
         # initialize array using windowCutoff as the initial width
-        self.pileupRGB = [[self.SNPtoRGB[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverageCutoff)]
+        self.pileupRGB = [[self.SNPtoRGB[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverage)]
 
         self.cigarLegend = ['M', 'I', 'D', 'N', 'S', 'H', 'P', '=', 'X', 'B', '?']  # ?=NM
-
-        # self.three = range(3)   # used repeatedly, and in the inner loop
 
         self.cigarTuples = None
         self.refStart = None
@@ -78,7 +78,11 @@ class Pileup:
         self.readPosition = None
         self.relativeIndex = None
         self.relativeIndexRef = None
-
+        self.readPileupStarted = False
+        self.insertOffsets = dict()
+        self.readMap = dict()           # a mapping of the reads' vertical index after repacking
+        self.readEnds = dict()          # track where reads end for packing purposes
+        self.breakpoints = defaultdict(list)    # don't even ask
 
     def generateRGBtoSNP(self):
         '''
@@ -91,7 +95,6 @@ class Pileup:
         for item in self.SNPtoRGB.items():
             bits = [int(i/255) for i in item[1]]
 
-            print(bits)
             i1,i2,i3 = bits
             self.RGBtoSNP[i1][i2][i3] = item[0]
 
@@ -102,14 +105,12 @@ class Pileup:
         pileup
         '''
 
-        index_iterator = 0
+        pileupIteratorIndex = 0
         for r, read in enumerate(self.localReads):
-            if r == self.coverageCutoff:
-                break
             if read.mapping_quality < self.mapQualityCutoff:
                 continue
-            self.parseRead(index_iterator, read)
-            index_iterator += 1
+            self.parseRead(pileupIteratorIndex, read)
+            pileupIteratorIndex += 1
 
 
     def parseRead(self,r,read):
@@ -122,6 +123,9 @@ class Pileup:
         '''
 
         refPositions = read.get_reference_positions()
+        readQualities = read.query_qualities
+        mapQuality = read.mapping_quality
+        firstPass = True
 
         if len(refPositions) == 0:
             sys.stderr.write("WARNING: read contains no reference alignments: %s\n" % read.query_name)
@@ -160,9 +164,14 @@ class Pileup:
                         self.readPosition += self.deltaRead[snp]
 
                         if self.absolutePosition >= self.queryStart and self.absolutePosition < self.queryEnd:
-                            self.addSNPtoPileup(r, snp, n, i)
+                            if firstPass and snp == 0:
+                                self.generateReadMapping(r,self.relativeIndex)
+                                firstPass = False
 
-                            self.relativeIndexRef += self.deltaRefRelative[snp]
+                            if not firstPass:
+                                self.addSNPtoPileup(r, snp, n, i, readQualities[self.readPosition], mapQuality)
+
+                                self.relativeIndexRef += self.deltaRefRelative[snp]
 
                             if snp == 4:
                                 break
@@ -173,7 +182,31 @@ class Pileup:
                     break
 
 
-    def addSNPtoPileup(self,r,snp,n,i):
+    def generateReadMapping(self,r,startIndex):
+        '''
+        Find the topmost available space to insert into the pileup
+        :param r:
+        :param startIndex:
+        :return:
+        '''
+
+        print(startIndex)
+
+        i = 0
+        unmapped = True
+        for item in sorted(self.readEnds.items(), key=lambda x: x[1]):
+            i += 1
+            if item[1] < startIndex:
+                self.readMap[r] = item[0]                               # store for use during insert homogenization
+                self.breakpoints[self.readMap[r]].append(item[1])       # god this is so convoluted
+                unmapped = False
+                break
+
+        if unmapped:
+            self.readMap[r] = i
+
+
+    def addSNPtoPileup(self,r,snp,n,i,readQuality,mapQuality):
         '''
         For a given read and SNP, add the corresponding encoding to the pileup array
         :param r:
@@ -192,6 +225,9 @@ class Pileup:
             else:
                 encoding = self.SNPtoRGB['M']   # Match
 
+            # update the end index array
+            self.readEnds[self.readMap[r]] = index
+
         elif snp == 1:                                              # insert
             nt = self.readSequence[self.readPosition]
 
@@ -199,7 +235,7 @@ class Pileup:
 
             if i == 0:      # record the insert for later
                 position = self.absolutePosition-self.queryStart
-                self.inserts[position].append([r, n])
+                self.inserts[position].append([self.readMap[r], n])
 
             self.relativeIndex += 1
 
@@ -213,8 +249,10 @@ class Pileup:
             sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
 
         if snp < 4:
-            self.pileupRGB[r][index] = encoding  # Finally add the code to the pileup
-
+            quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255
+            encoding = list(copy.deepcopy(encoding))
+            encoding.append(int(round(quality)))
+            self.pileupRGB[self.readMap[r]][index] = tuple(encoding)       # Finally add the code to the pileup
 
     def reconcileInserts(self):
         '''
@@ -222,7 +260,8 @@ class Pileup:
          despite differences in insertion lengths among reads.
         '''
 
-        offsets = [0 for n in range(self.coverageCutoff)]
+        offsets = [0 for n in range(len(self.pileupRGB))]
+        breakpointOffsets = {r:0 for r in self.breakpoints.keys()}
 
         for p in sorted(self.inserts.keys()):
             i = 0
@@ -231,23 +270,23 @@ class Pileup:
             longestInsert = sorted(self.inserts[p], key=lambda x: x[1], reverse=True)[0]
             n = longestInsert[1]    #length of the insert
 
-            for r in range(self.coverageCutoff):
+            for r in range(len(self.pileupRGB)):
                 if r not in [insert[0] for insert in self.inserts[p]]:
                     # update the position based on previous inserts
                     pAdjusted = p+offsets[r]
 
                     # add the insert to the pileup
-                    self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB[self.noneChar]]*n+self.pileupRGB[r][pAdjusted:]
+                    self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB['I']]*n+self.pileupRGB[r][pAdjusted:]
 
                     if i == 0:
                         # add the insert to the reference sequence and the label string
-                        self.refSequence = self.refSequence[:int(pAdjusted)]+self.noneChar*n+self.refSequence[int(pAdjusted):]
+                        self.refSequence = self.refSequence[:int(pAdjusted)]+'I'*n+self.refSequence[int(pAdjusted):]
 
                         pVariant = p-1
-                        if pVariant in self.variantLengths:                    # if the position is a variant site
+                        if pVariant in self.variantLengths:             # if the position is a variant site
                             l = self.variantLengths[pVariant] -1  # -1 for ref
                             if l >= n:                                  # correctly modify the label to fit the insert
-                                labelInsert = self.label[pAdjusted-1]*n     # using the length of the called variant at pos.
+                                labelInsert = self.label[pAdjusted-1]*n # using the length of the called variant at pos.
                             else:
                                 labelInsert = self.label[pAdjusted-1]*l + self.noneLabel*(n-l)
 
@@ -261,12 +300,20 @@ class Pileup:
                 else:
                     # find this read's insert length
                     insertLength = [insert[1] for insert in self.inserts[p] if insert[0] == r][0]
+                    pAdjusted = p+offsets[r]+insertLength  # start adding insert chars after this insertion
 
                     if insertLength < n:    # if this read has an insert, but of shorter length than the max
-                        pAdjusted = p+offsets[r]+insertLength  # start adding insert chars after this insertion
                         nAdjusted = n-insertLength             # number of inserts to add
 
-                        self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB[self.noneChar]]*nAdjusted+self.pileupRGB[r][pAdjusted:]
+                        self.pileupRGB[r] = self.pileupRGB[r][:pAdjusted]+[self.SNPtoRGB['I']]*nAdjusted+self.pileupRGB[r][pAdjusted:]
+
+                    if r in breakpointOffsets:
+                        breakpointOffsets[r] += insertLength
+                        # find the nearest break point that comes after this insert and put some spaces in that _____
+                        for breakpoint in self.breakpoints[r]:
+                            if breakpoint > pAdjusted:
+                                bAdjusted = breakpoint + breakpointOffsets[r]
+                                self.pileupRGB[r] = self.pileupRGB[r][:bAdjusted]+[self.SNPtoRGB[self.noneChar]]*n+self.pileupRGB[r][bAdjusted:]
 
                 offsets[r] += n     # <-- the magic happens here
 
@@ -291,7 +338,6 @@ class Pileup:
         :return:
         '''
 
-
         if not filename.endswith(".png"):
             filename += ".png"
 
@@ -301,10 +347,15 @@ class Pileup:
         image = Image.new("RGB",(self.windowCutoff,self.coverageCutoff))
         pixels = image.load()
 
+        jlength = len(self.pileupRGB)
+
         for i in range(image.size[0]):
             for j in range(image.size[1]):
-                pixels[i, j] = self.pileupRGB[j][i] if i < len(self.pileupRGB[j]) else self.SNPtoRGB[self.noneChar]
 
+                if j < jlength:
+                    pixels[i,j] = self.pileupRGB[j][i] if i < len(self.pileupRGB[j]) else self.SNPtoRGB[self.noneChar]
+                else:
+                    pixels[i,j] = self.SNPtoRGB[self.noneChar]
         image.save(filename,"PNG")
 
 
@@ -364,7 +415,7 @@ class PileUpGenerator:
         self.fasta = Fasta(referenceFile,as_raw=True,sequence_always_upper=True)
 
 
-    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths,forceCoverage=False,coverageCutoff=100,mapQualityCutoff=20,windowCutoff=300):
+    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths,forceCoverage=False,coverageCutoff=150,mapQualityCutoff=0,windowCutoff=300):
         '''
         Generate a pileup at a given position
         :param queryStart:
@@ -388,9 +439,7 @@ class PileUpGenerator:
         # print(datetime.now() - startTime, "encoded and saved")
 
         # print(pileup.label)
-        # pileup.generateRGBtoSNP()
-        # print(pileup.RGBtoSNP)
-        # print(pileup.decodeRGB(outputFilename + ".png"))
+        print(pileup.decodeRGB(outputFilename + ".png"))
 
         return pileup.getOutputLabel()
 
@@ -399,13 +448,12 @@ class PileUpGenerator:
 # fastaFile = "deePore/data/chr3.fa"
 #
 # vcf_region = "3"
-# window_size = 50
-# filename = "deePore/data/training_chr3_350/"
-# labelString = '0'*51
+# window_size = 100
+# filename = "deePore/data/test_packed/"
+# labelString = '0'*(window_size+1)
 # variantLengths = dict()
-# position = 111945
+# position = 66164
 #
 # piler = PileUpGenerator(bamFile,fastaFile)
 # outputLabelString = piler.generatePileup(chromosome=vcf_region, position=position, flankLength=window_size,
-#                                      outputFilename=filename, label=labelString, variantLengths=variantLengths,forceCoverage=True,coverageCutoff=50)
-
+#                                      outputFilename=filename, label=labelString, variantLengths=variantLengths,forceCoverage=True,coverageCutoff=100)
