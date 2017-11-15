@@ -14,7 +14,7 @@ the SamPileupBMP class and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
 allVariantRecord = {}
-subregion = ':77131-200000'
+subregion = ''
 
 def getClassForGenotype(gtField):
     if gtField[0] == gtField[-1]:

@@ -190,8 +190,6 @@ class Pileup:
         :return:
         '''
 
-        print(startIndex)
-
         i = 0
         unmapped = True
         for item in sorted(self.readEnds.items(), key=lambda x: x[1]):
@@ -439,7 +437,7 @@ class PileUpGenerator:
         # print(datetime.now() - startTime, "encoded and saved")
 
         # print(pileup.label)
-        print(pileup.decodeRGB(outputFilename + ".png"))
+        # print(pileup.decodeRGB(outputFilename + ".png"))
 
         return pileup.getOutputLabel()
 
