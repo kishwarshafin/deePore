@@ -21,5 +21,5 @@ for i in ${chrs[@]};
     current_output_dir=$output_dir/'chr'$i/
     mkdir $current_output_dir
     echo "startring chr" $i
-    python pileupGenerator.py --bam $bam_file --ref $ref_file --vcf $vcf_file --vcf_region $i --coverage $coverage --window_size $window_size --vcf_region_only 1 --output_dir $current_output_dir 2>tmp/progress-$i.txt &
+    python3 pileupGenerator.py --bam $bam_file --ref $ref_file --vcf $vcf_file --vcf_region $i --coverage $coverage --window_size $window_size --vcf_region_only 1 --output_dir $current_output_dir 2>tmp/progress-$i.txt &
     done
