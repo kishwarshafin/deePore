@@ -47,6 +47,7 @@ class PileupDataset(Dataset):
     def __getitem__(self, index):
 
         img = Image.open(self.X_train[index])
+        img = img.transpose(Image.TRANSPOSE)
         # img = ImageOps.grayscale(img) take bmp files
         if self.transform is not None:
             img = self.transform(img)

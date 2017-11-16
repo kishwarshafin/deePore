@@ -112,7 +112,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model()
+    model = Model(input_channels=3, depth=28, num_classes=4, widen_factor=4, drop_rate=0.0)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
@@ -129,7 +129,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         total_images = 0
         total_could_be = 0
         for i, (images, labels) in enumerate(train_loader):
-            hidden = model.init_hidden(images.size(0))
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
@@ -148,33 +147,21 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 x = images[:, :, row:row+seq_len, :]
                 y = labels[:, row:row + seq_len]
 
-                total_variation = torch.sum(y).data[0]
+                total_variation = torch.sum(y.eq(2)).data[0]
+                total_variation += torch.sum(y.eq(3)).data[0]
                 total_could_be += batch_size
-                # print(total_variation)
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
                 elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
                     continue
 
-                # print(x)
-                # print(y)
-                # exit()
-
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
-                outputs = model(x, hidden)
-                hidden = repackage_hidden(hidden)
-                # print('Label: ', y.data[0])
-                # print('Values:', outputs.data[0])
-                # print(y.contiguous().view(-1))
-                # exit()
-                # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
+                outputs = model(x)
 
                 loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
-                # print(outputs.contiguous().view(-1, 3).size())
-                # print(y.contiguous().view(-1).size())
-                # exit()
+
                 loss.backward()
                 optimizer.step()
 
