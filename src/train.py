@@ -51,10 +51,22 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
             images = images.cuda()
             labels = labels.cuda()
 
-        for row in range(0, images.size(2), seq_len):
+        for row in range(0, images.size(2), 1):
             # segmentation of image. Currently using 1xCoverage
+            if row + seq_len > images.size(2):
+                continue
+
             x = images[:, :, row:row + seq_len, :]
-            y = labels[:, row:row+seq_len]
+            y = labels[:, row:row + seq_len]
+
+            total_variation = torch.sum(y).data[0]
+
+            if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
+                continue
+            elif random.uniform(0, 1) < total_variation / batch_size < 0.02:
+                continue
+
+
 
             # Forward + Backward + Optimize
             outputs = model(x, hidden)
@@ -83,7 +95,7 @@ def repackage_hidden(h):
     if type(h) == Variable:
         return Variable(h.data)
     else:
-        return tuple(self.repackage_hidden(v) for v in h)
+        return tuple(repackage_hidden(v) for v in h)
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
@@ -111,7 +123,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
     seq_len = 3
-
+    iteration_jump = 1
     for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
@@ -128,18 +140,13 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 images = images.cuda()
                 labels = labels.cuda()
 
-            for row in range(0, images.size(2), seq_len):
-                # segmentation of image. Currently using 1xCoverage
+            for row in range(0, images.size(2), iteration_jump):
+                # segmentation of image. Currently using seq_len
                 if row+seq_len > images.size(2):
                     continue
-                    # seq_len = images.size(2) - row
-                else:
-                    seq_len = 3
 
-                if seq_len != 3:
-                    print(seq_len)
                 x = images[:, :, row:row+seq_len, :]
-                y = labels[:, row:row+seq_len]
+                y = labels[:, row:row + seq_len]
 
                 total_variation = torch.sum(y).data[0]
                 total_could_be += batch_size

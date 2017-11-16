@@ -16,10 +16,8 @@ class SequenceWise(nn.Module):
         self.module = module
 
     def forward(self, x):
-        print(x.size())
         t, n = x.size(0), x.size(1)
         x = x.view(t * n, -1)
-        print(x.size())
         x = self.module(x)
         x = x.view(t, n, -1)
         return x
@@ -75,10 +73,12 @@ class Model(nn.Module):
         self.incpConv1 = nn.Conv2d(output_channel, output_channel, (1, 1), bias=False, stride=(1, 1))
         self.conv0 = nn.Conv2d(input_channel, output_channel, (1, 3), padding=(0, 1), bias=False)
         self.conv1 = nn.Conv2d(output_channel, output_channel, (1, 3), padding=(0, 1), bias=False)
-        self.conv2 = nn.Conv2d(output_channel, output_channel, (3, 3), padding=(1, 1), bias=False)
-        self.conv3 = nn.Conv2d(output_channel, output_channel, (3, 3), padding=(1, 1), bias=False)
+        self.conv2 = nn.Conv2d(output_channel, output_channel, (1, 3), padding=(0, 1), bias=True)
+        self.conv3 = nn.Conv2d(output_channel, output_channel, (1, 3), padding=(0, 1), bias=True)
+        # ----FC before CNN---- #s
+        self.cnn_fc_rnn = nn.Linear(coverage_depth * output_channel, hidden_size)
         # -----RNN----- #
-        rnn_input_size = coverage_depth * output_channel
+        rnn_input_size = hidden_size
         rnns = []
         rnn = nn.GRU(input_size=rnn_input_size, hidden_size=hidden_size, bidirectional=bidirectional)
         rnns.append(('0', rnn))
@@ -96,7 +96,7 @@ class Model(nn.Module):
 
         indataCp = self.batchNorm(incpConv(input_data)) if batch_norm_flag else incpConv(input_data)
 
-        convOut1 = conv1(input_data)
+        convOut1 = self.batchNorm(conv1(input_data))
 
         convOut2 = self.batchNorm(self.conv2(convOut1))
         convOut3 = self.conv3(convOut2)
@@ -148,6 +148,7 @@ class Model(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
+        x = self.cnn_fc_rnn(x)
         x = self.rnn_layer(x, hidden)
 
         x = self.fully_connected_layer(x)
