@@ -256,15 +256,15 @@ class Pileup:
         elif snp == 3:                                              # refskip (?)
             encoding = self.SNPtoRGB['N']
 
-        else:                                                       # anything else
-            sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
+        # else:                                                       # anything else
+            # sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
 
         if snp < 4:
             quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255   # calculate product of P_no_error
 
             # print(quality,mapQuality,readQuality)
-            if quality < 180:
-                print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
+            # if quality < 180:
+            #     print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
 
             encoding = list(copy.deepcopy(encoding)) + [int(round(quality))]    # append the quality Alpha value
             self.pileupRGB[self.readMap[r]][index] = tuple(encoding)       # Finally add the code to the pileup
@@ -392,7 +392,6 @@ class Pileup:
 
     def getOutputLabel(self):
         blankLength = self.windowCutoff - len(self.label)
-        print(blankLength)
 
         self.label += self.noneLabel*blankLength
         return self.label
@@ -446,7 +445,7 @@ class PileUpGenerator:
 
         chromosome = str(chromosome)
 
-        print(outputFilename)
+        # print(outputFilename)
         # startTime = datetime.now()
         pileup = Pileup(self.sam,self.fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,windowCutoff=windowCutoff,forceCoverage=forceCoverage,coverageCutoff=coverageCutoff,mapQualityCutoff=mapQualityCutoff,sortColumns=sortColumns)
         # print(datetime.now() - startTime, "initialized")
@@ -458,8 +457,8 @@ class PileUpGenerator:
         pileup.savePileupRGB(outputFilename)
         # print(datetime.now() - startTime, "encoded and saved")
 
-        print(pileup.getOutputLabel())
-        print(pileup.decodeRGB(outputFilename + ".png"))
+        # print(pileup.getOutputLabel())
+        # print(pileup.decodeRGB(outputFilename + ".png"))
 
         return pileup.getOutputLabel()
 

@@ -40,7 +40,6 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
         gtField = getGTField(rec)   # genotype according to the vcf
 
         genotypeClass = getClassForGenotype(gtField)
-        print(gtField,genotypeClass)
 
         if genotypeClass != 0 and rec.qual is not None and rec.qual > qualityCutoff:
             alleles = rec.alleles
