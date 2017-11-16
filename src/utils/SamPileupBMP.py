@@ -51,7 +51,7 @@ class Pileup:
         self.deltaRefRelative  = [1,0,1,0,0,0,0,0,0,0,0]    # key for whether reference advances (for match comparison within query region)
 
         self.noneChar = '_'       # character to use for empty positions in the pileup
-        self.noneLabel = '3'      # character to use for (non variant called) inserts in the label
+        self.noneLabel = '0'      # character to use for (non variant called) inserts in the label
 
         self.SNPtoRGB = {'M': (255,255,255),
                          'A': (255,0,  0),
@@ -63,13 +63,13 @@ class Pileup:
                          'N': (0,  0,  0),  # redundant in case of read containing 'N'... should this be independent?
                self.noneChar: (0,  0,  0),}
 
-        self.sortingKey = {'M':4,
+        self.sortingKey = {'M':5,
                            'A':0,
                            'C':1,
                            'G':2,
                            'T':3,
-                           'I':5,
-                           'D':6,
+                           'I':6,
+                           'D':4,
                            'N':7}
 
         self.RGBtoSNP = [[['N', 'T'], ['G', 'D']], [['A', 'I'], ['C', 'M']]]
@@ -263,8 +263,8 @@ class Pileup:
             quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255   # calculate product of P_no_error
 
             # print(quality,mapQuality,readQuality)
-            # if quality < 180:
-            #    print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
+            if quality < 180:
+                print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
 
             encoding = list(copy.deepcopy(encoding)) + [int(round(quality))]    # append the quality Alpha value
             self.pileupRGB[self.readMap[r]][index] = tuple(encoding)       # Finally add the code to the pileup
@@ -391,6 +391,10 @@ class Pileup:
 
 
     def getOutputLabel(self):
+        blankLength = self.windowCutoff - len(self.label)
+        print(blankLength)
+
+        self.label += self.noneLabel*blankLength
         return self.label
 
 
@@ -454,8 +458,8 @@ class PileUpGenerator:
         pileup.savePileupRGB(outputFilename)
         # print(datetime.now() - startTime, "encoded and saved")
 
-        # print(pileup.label)
-        # print(pileup.decodeRGB(outputFilename + ".png"))
+        print(pileup.getOutputLabel())
+        print(pileup.decodeRGB(outputFilename + ".png"))
 
         return pileup.getOutputLabel()
 

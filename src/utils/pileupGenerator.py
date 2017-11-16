@@ -23,11 +23,12 @@ cutoff = 350
 def getClassForGenotype(gtField):
     if gtField[0] == gtField[-1]:
         if gtField[0] == '0':
-            return 0    # homozygous reference
+            return 1    # homozygous reference
         else:
-            return 2    # homozygous alt
+            return 3    # homozygous alt
     else:
-        return 1    # heterozygous (single or double alt)
+        return 2    # heterozygous (single or double alt)
+
 
 def getGTField(rec):
     return str(rec).rstrip().split('\t')[-1].split(':')[0].replace('/', '|').replace('\\', '|').split('|')
@@ -39,6 +40,8 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
         gtField = getGTField(rec)   # genotype according to the vcf
 
         genotypeClass = getClassForGenotype(gtField)
+        print(gtField,genotypeClass)
+
         if genotypeClass != 0 and rec.qual is not None and rec.qual > qualityCutoff:
             alleles = rec.alleles
 
@@ -59,7 +62,6 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
 
             for i in range(rec.start, rec.stop):
                 allVariantRecord[i] = (genotypeClass,insertLength,deleteLength)
-
 
 
 def getLabel(start, end):
@@ -89,7 +91,7 @@ def getLabel(start, end):
                 deleteCount -= 1
 
         else:
-            labelStr += str(0)
+            labelStr += str(1)
     return labelStr,insertLengths,deleteLengths
 
 
