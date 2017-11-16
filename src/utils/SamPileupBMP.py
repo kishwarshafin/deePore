@@ -263,8 +263,8 @@ class Pileup:
             quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255   # calculate product of P_no_error
 
             # print(quality,mapQuality,readQuality)
-            if quality < 180:
-                print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
+            # if quality < 180:
+            #    print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
 
             encoding = list(copy.deepcopy(encoding)) + [int(round(quality))]    # append the quality Alpha value
             self.pileupRGB[self.readMap[r]][index] = tuple(encoding)       # Finally add the code to the pileup
