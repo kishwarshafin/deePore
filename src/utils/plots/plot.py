@@ -39,5 +39,5 @@ for i in range(0, epoch+1, 10):
 plt.xticks(range(0, batch_size * (epoch+1), 11*10), x_ticks)
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
-plt.title('CNN Training chr1~19')
-plt.savefig('CNN.png', dpi=400)
+# plt.title('CNN Training chr1~19')
+plt.savefig(file_name+'-viz'+'.png', dpi=400)
