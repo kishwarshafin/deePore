@@ -13,20 +13,26 @@ to create a sparse bitmap representation of the pileup. It uses
 the SamPileupBMP class and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
+
 allVariantRecord = {}
 subregion = ''
+cutoffOutput = False
+cutoff = 350
+
 
 def getClassForGenotype(gtField):
     if gtField[0] == gtField[-1]:
         if gtField[0] == '0':
-            return 0    # homozygous reference
+            return 1    # homozygous reference
         else:
-            return 2    # homozygous alt
+            return 3    # homozygous alt
     else:
-        return 1    # heterozygous (single or double alt)
+        return 2    # heterozygous (single or double alt)
+
 
 def getGTField(rec):
     return str(rec).rstrip().split('\t')[-1].split(':')[0].replace('/', '|').replace('\\', '|').split('|')
+
 
 def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
     vcf_in = VariantFile(vcfFile)
@@ -34,29 +40,12 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
         gtField = getGTField(rec)   # genotype according to the vcf
 
         genotypeClass = getClassForGenotype(gtField)
+
         if genotypeClass != 0 and rec.qual is not None and rec.qual > qualityCutoff:
             alleles = rec.alleles
 
             insertLength = None
             deleteLength = None
-
-            # if genotypeClass == 1:      # heterozygous, could be insert or delete
-
-                # aLength = len(alleles[int(gtField[0])])
-                # bLength = len(alleles[int(gtField[-1])])
-
-                # if gtField[0] == '0':
-                #     difference = aLength - bLength
-                #
-                #     if difference < 0:       # is insert
-                #         insertLength = aLength
-                #     elif difference > 0:    # is del
-                #         deleteLength = bLength
-                #     else:
-                #         # is mismatch
-                #         pass
-
-                # else:
 
             longestAllele = 0
             for gt in gtField:  # find length of longest allele that was called as a variant, that is not a ref
@@ -72,9 +61,6 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
 
             for i in range(rec.start, rec.stop):
                 allVariantRecord[i] = (genotypeClass,insertLength,deleteLength)
-
-            # if str(rec.start).startswith("1802"):
-            #     print(rec.start,genotypeClass,insertLength,deleteLength)
 
 
 def getLabel(start, end):
@@ -104,7 +90,7 @@ def getLabel(start, end):
                 deleteCount -= 1
 
         else:
-            labelStr += str(0)
+            labelStr += str(1)
     return labelStr,insertLengths,deleteLengths
 
 
@@ -129,10 +115,11 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
                 end_timer = timer()
                 print(str(cnt) + " Records done", file=sys.stderr)
                 print("TIME elapsed "+ str(end_timer - start_timer), file=sys.stderr)
-            smry.write(os.path.abspath(filename) + ".bmp," + str(outputLabelString)+'\n')
+            smry.write(os.path.abspath(filename) + ".png," + str(outputLabelString)+'\n')
 
-            if cnt > 350:
-                break
+            if cutoffOutput:
+                if cnt > cutoff:
+                    break
 
 
 if __name__ == '__main__':
