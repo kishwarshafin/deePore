@@ -38,11 +38,11 @@ class PileupDataset(Dataset):
         self.transform = transform
 
         self.X_train = tmp_df[0]
-        labelLists = []
+        label_lists = []
         for label in tmp_df[1]:
-            labelList = [int(x) for x in str(label)]
-            labelLists.append(np.array(labelList, dtype=np.long))
-        self.y_train = np.array(labelLists)
+            label_list = [int(x) for x in str(label)]
+            label_lists.append(np.array(label_list, dtype=np.int))
+        self.y_train = np.array(label_lists)
 
     def __getitem__(self, index):
 
