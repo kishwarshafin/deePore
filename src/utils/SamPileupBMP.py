@@ -18,7 +18,7 @@ class Pileup:
     position, using the pysam and pyfaidx object provided by PileupGenerator
     '''
 
-    def __init__(self,sam,fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,coverageCutoff,mapQualityCutoff,windowCutoff,subsampleRate=0,forceCoverage=False,arrayInitializationFactor=2):
+    def __init__(self,sam,fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,coverageCutoff,mapQualityCutoff,windowCutoff,sortColumns,subsampleRate=0,forceCoverage=False,arrayInitializationFactor=2):
         self.length = flankLength*2+1
         self.label = label
         self.variantLengths = variantLengths
@@ -30,6 +30,7 @@ class Pileup:
         self.chromosome = chromosome
         self.mapQualityCutoff = mapQualityCutoff
         self.windowCutoff = windowCutoff
+        self.sortColumns = sortColumns
 
         # pysam uses 0-based coordinates
         self.localReads = sam.fetch("chr"+self.chromosome, start=self.queryStart, end=self.queryEnd)
@@ -62,7 +63,18 @@ class Pileup:
                          'N': (0,  0,  0),  # redundant in case of read containing 'N'... should this be independent?
                self.noneChar: (0,  0,  0),}
 
-        self.RGBtoSNP = [[[' ', 'T'], ['G', 'D']], [['A', '_'], ['C', '.']]]
+        self.sortingKey = {'M':4,
+                           'A':0,
+                           'C':1,
+                           'G':2,
+                           'T':3,
+                           'I':5,
+                           'D':6,
+                           'N':7}
+
+        self.RGBtoSNP = [[['N', 'T'], ['G', 'D']], [['A', 'I'], ['C', 'M']]]
+
+        self.RGBtoSNPtext = [[[' ', 'T'], ['G', 'D']], [['A', '_'], ['C', '.']]]
 
         # initialize array using windowCutoff as the initial width
         self.pileupRGB = [[self.SNPtoRGB[self.noneChar] for i in range(self.windowCutoff)] for j in range(self.coverage)]
@@ -83,6 +95,7 @@ class Pileup:
         self.readMap = dict()           # a mapping of the reads' vertical index after repacking
         self.readEnds = dict()          # track where reads end for packing purposes
         self.breakpoints = defaultdict(list)    # don't even ask
+
 
     def generateRGBtoSNP(self):
         '''
@@ -247,10 +260,15 @@ class Pileup:
             sys.stderr.write("WARNING: unencoded SNP: %s at position %d\n" % (self.cigarLegend[snp],self.relativeIndex))
 
         if snp < 4:
-            quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255
-            encoding = list(copy.deepcopy(encoding))
-            encoding.append(int(round(quality)))
+            quality = (1-(10**((mapQuality)/-10)))*(1-(10**((readQuality)/-10)))*255   # calculate product of P_no_error
+
+            # print(quality,mapQuality,readQuality)
+            if quality < 180:
+                print("LOW QUALITY PIXEL FOUND: ", round(quality), " | mapQ: ", mapQuality, " | readQ: ", readQuality, " | column: ", index)
+
+            encoding = list(copy.deepcopy(encoding)) + [int(round(quality))]    # append the quality Alpha value
             self.pileupRGB[self.readMap[r]][index] = tuple(encoding)       # Finally add the code to the pileup
+
 
     def reconcileInserts(self):
         '''
@@ -323,10 +341,8 @@ class Pileup:
         '''
 
         for character in self.refSequence:
-            triplet = self.SNPtoRGB[character]
-            self.referenceRGB.append(triplet)
-
-        self.pileupRGB = [self.referenceRGB] + self.pileupRGB
+            encoding = list(self.SNPtoRGB[character]) + [255]
+            self.referenceRGB.append(tuple(encoding))
 
 
     def savePileupRGB(self,filename):
@@ -341,6 +357,13 @@ class Pileup:
 
         self.pileupRGB = self.pileupRGB[:self.coverageCutoff]
         self.pileupRGB = [row[:self.windowCutoff] for row in self.pileupRGB]
+
+        if self.sortColumns:
+            self.pileupRGB = [list(entry) for entry in zip(*self.pileupRGB)] #transpose
+            self.pileupRGB = [sorted(row, key=lambda x: self.RGBtoSortingKey(x[:3])) for row in self.pileupRGB] # sort
+            self.pileupRGB = [list(entry) for entry in zip(*self.pileupRGB)] #transpose back
+
+        self.pileupRGB = [self.referenceRGB] + self.pileupRGB
 
         image = Image.new("RGB",(self.windowCutoff,self.coverageCutoff))
         pixels = image.load()
@@ -357,6 +380,16 @@ class Pileup:
         image.save(filename,"PNG")
 
 
+    def RGBtoBinary(self,rgb):
+        return [int(value/255) for value in rgb]
+
+
+    def RGBtoSortingKey(self,rgb):
+        i1,i2,i3 = self.RGBtoBinary(rgb)
+        code = self.RGBtoSNP[i1][i2][i3]
+        return self.sortingKey[code]
+
+
     def getOutputLabel(self):
         return self.label
 
@@ -368,7 +401,6 @@ class Pileup:
         :return:
         '''
 
-        # mode = "RGB"
         img = Image.open(filename)          # <-- switch this to RGBA
         pixels = numpy.array(img.getdata())
         text = ''
@@ -380,24 +412,9 @@ class Pileup:
 
         for h in range(height):
             for w in range(width):
-                r,g,b = pixels[h][w]
+                r,g,b = self.RGBtoBinary(pixels[h][w])
 
-                if r == 255:
-                    i1 = 1
-                else:
-                    i1 = 0
-
-                if g == 255:
-                    i2 = 1
-                else:
-                    i2 = 0
-
-                if b == 255:
-                    i3 = 1
-                else:
-                    i3 = 0
-
-                text += self.RGBtoSNP[i1][i2][i3]
+                text += self.RGBtoSNPtext[r][g][b]
             text += '\n'
 
         return text
@@ -413,7 +430,7 @@ class PileUpGenerator:
         self.fasta = Fasta(referenceFile,as_raw=True,sequence_always_upper=True)
 
 
-    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths,forceCoverage=False,coverageCutoff=150,mapQualityCutoff=0,windowCutoff=300):
+    def generatePileup(self,chromosome,position,flankLength,outputFilename,label,variantLengths,forceCoverage=False,coverageCutoff=150,mapQualityCutoff=0,windowCutoff=300,sortColumns=True):
         '''
         Generate a pileup at a given position
         :param queryStart:
@@ -425,8 +442,9 @@ class PileUpGenerator:
 
         chromosome = str(chromosome)
 
+        print(outputFilename)
         # startTime = datetime.now()
-        pileup = Pileup(self.sam,self.fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,windowCutoff=windowCutoff,forceCoverage=forceCoverage,coverageCutoff=coverageCutoff,mapQualityCutoff=mapQualityCutoff)
+        pileup = Pileup(self.sam,self.fasta,chromosome,queryStart,flankLength,outputFilename,label,variantLengths,windowCutoff=windowCutoff,forceCoverage=forceCoverage,coverageCutoff=coverageCutoff,mapQualityCutoff=mapQualityCutoff,sortColumns=sortColumns)
         # print(datetime.now() - startTime, "initialized")
         pileup.iterateReads()
         # print(datetime.now() - startTime, "drafted")

@@ -13,8 +13,12 @@ to create a sparse bitmap representation of the pileup. It uses
 the SamPileupBMP class and encodes each base in pileup to 6 binary
 bits. It creates a large binary sparse matrix too.
 """
+
 allVariantRecord = {}
 subregion = ''
+cutoffOutput = False
+cutoff = 350
+
 
 def getClassForGenotype(gtField):
     if gtField[0] == gtField[-1]:
@@ -27,6 +31,7 @@ def getClassForGenotype(gtField):
 
 def getGTField(rec):
     return str(rec).rstrip().split('\t')[-1].split(':')[0].replace('/', '|').replace('\\', '|').split('|')
+
 
 def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
     vcf_in = VariantFile(vcfFile)
@@ -55,8 +60,6 @@ def populateRecordDictionary(vcf_region, vcfFile, qualityCutoff=60):
             for i in range(rec.start, rec.stop):
                 allVariantRecord[i] = (genotypeClass,insertLength,deleteLength)
 
-            # if str(rec.start).startswith("1802"):
-            #     print(rec.start,genotypeClass,insertLength,deleteLength)
 
 
 def getLabel(start, end):
@@ -113,8 +116,9 @@ def generatePileupBasedonVCF(vcf_region, bamFile, refFile, vcfFile, output_dir, 
                 print("TIME elapsed "+ str(end_timer - start_timer), file=sys.stderr)
             smry.write(os.path.abspath(filename) + ".png," + str(outputLabelString)+'\n')
 
-            if cnt > 350:
-                break
+            if cutoffOutput:
+                if cnt > cutoff:
+                    break
 
 
 if __name__ == '__main__':
