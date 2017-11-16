@@ -7,9 +7,21 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 from scipy import misc
-from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import sys
+import torchnet.meter as meter
+
+
+def repackage_hidden(h):
+    """Wraps hidden states in new Variables, to detach them from their history."""
+    if h == Variable:
+        return Variable(h.data)
+    else:
+        return repackage_hidden(h)
+
+
+def most_common(lst):
+    return max(set(lst), key=lst.count)
 
 
 def test(csvFile, batchSize, modelPath, gpu_mode):
@@ -27,65 +39,77 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = torch.load(modelPath)
+    model = torch.load(modelPath)
     if gpu_mode:
-        cnn = cnn.cuda()
-    cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
+        model = model.cuda()
+    model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    correct = 0
-    total = 0
-    total_hom = 0
-    total_het = 0
-    total_homalt = 0
-    correct_hom = 0
-    correct_het = 0
-    correct_homalt = 0
+    confusion_matrix = meter.ConfusionMeter(3)
+    seq_len = 3
+    confusion_tensor = torch.zeros(3, 3)
 
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
+        hidden = model.init_hidden(images.size(0))
         pl = labels
         if gpu_mode:
             images = images.cuda()
+        window = 1
+        prediction_stack = []
+        for row in range(0, images.size(2), 1):
+            if row + seq_len > images.size(2):
+                continue
 
-        for row in range(images.size(2)):
-            x = images[:, :, row:row + 1, :]
+            x = images[:, :, row:row + seq_len, :]
             ypl = pl[:, row]
-            outputs = cnn(x).cpu()
+            # ypl = ypl.contiguous().view(-1)
+            preds = model(x, hidden)
+            # preds = preds.contiguous().view(-1, 3)
+            preds = preds.data.topk(1)[1]
+            prediction_stack.append(preds)
+            # print(row, len(prediction_stack))
+            if row+1 >= seq_len:
+                #prediction_stack.reverse()
+                for i in range(images.size(0)):
+                    pr = []
+                    k = seq_len - 1
+                    for j in range(len(prediction_stack)):
+                        pr.append(prediction_stack[j][i][k][0])
+                        k-=1
+                        # print(k, len(prediction_stack))
+                    p = most_common(pr)
+                    t = ypl[i]
+                    confusion_tensor[t][p] += 1
+                    #if t!=0:
+                        #print(i, t, p, pr)
+                        #print(prediction_stack)
+                        #exit()
+                        # print(t, p, pr)
+                        # exit()
+                prediction_stack.pop(0)
+                # print(ypl)
+                window = 1
+                # print(prediction_stack)
+                # print(row)
+            window += 1
+            #dict[row] = dict[row] +'''
+            '''
+            for i in range(preds.size(0)):
+                #predictions = torch.max(preds[i], 1)[1]
+                targets = ypl[i]
+                predictions = preds[i].data.topk(1)
 
-            _, predicted = torch.max(outputs.data, 1)
-            for i, target in enumerate(ypl):
-                t_tensor = torch.LongTensor([ypl[i]])
-                p_tensor = torch.LongTensor([predicted[i]])
-                if target == 0:
-                    total_hom += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_hom += 1
-                        correct += 1
-                elif target == 1:
-                    total_het += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_het += 1
-                        correct += 1
-                elif target == 2:
-                    total_homalt += 1
-                    eq = torch.equal(t_tensor, p_tensor)
-                    if eq:
-                        correct_homalt += 1
-                        correct += 1
-                total += 1
-
-        if (counter+1) % 100 == 0:
-            sys.stderr.write(TextColor.BLUE + " Batches done: " + str(counter+1) + TextColor.END)
-
-    print('Total hom: ', total_hom, 'Correctly predicted: ', correct_hom, 'Accuracy: ', correct_hom / total_hom * 100)
-    print('Total het: ', total_het, 'Correctly predicted: ', correct_het, 'Accuracy: ', correct_het / total_het * 100)
-    print('Total homalt: ', total_homalt, 'Correctly predicted: ', correct_homalt, 'Accuracy: ',
-          correct_homalt / total_homalt * 100)
-
-    print("Test Accuracy of the model on the test images:", (100 * correct / total))
-    print("Most populated class: ", total_hom/total * 100)
+                for i in range(predictions[1].size(0)):
+                    p = predictions[1][i][0]
+                    t = targets[i]
+                    confusion_tensor[t][p] += 1
+                    #if t != p:
+                        #print(preds[i], targets)'''
+            # confusion_matrix.add(preds.contiguous().view(-1, 3).data.squeeze(), ypl.contiguous().view(-1))
+        print(confusion_tensor)
+    # print(confusion_tensor)
+    print(confusion_tensor)
+    # print(confusion_matrix)
 
 
 

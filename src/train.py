@@ -11,19 +11,21 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import CNN
+from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
+import random
 
-def validate(csvFile, batchSize, gpu_mode, trained_model):
+
+def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
     transformations = transforms.Compose([transforms.ToTensor()])
 
-    validation_data = PileupDataset(csvFile, transformations)
+    validation_data = PileupDataset(data_file, transformations)
     validation_loader = DataLoader(validation_data,
-                             batch_size=batchSize,
-                             shuffle=True,
-                             num_workers=4,
-                             pin_memory=gpu_mode # CUDA only
-                             )
+                                   batch_size=batch_size,
+                                   shuffle=True,
+                                   num_workers=16,
+                                   pin_memory=gpu_mode
+                                   )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     model = trained_model.eval()
@@ -34,99 +36,171 @@ def validate(csvFile, batchSize, gpu_mode, trained_model):
     criterion = nn.CrossEntropyLoss()
 
     # Train the Model
-    sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
+
     for i, (images, labels) in enumerate(validation_loader):
-        images = Variable(images)
-        labels = Variable(labels)
+        hidden = model.init_hidden(images.size(0))
+        if gpu_mode is True and images.size(0) % 8 != 0:
+            continue
+
+        images = Variable(images, volatile=True)
+        labels = Variable(labels, volatile=True)
         if gpu_mode:
             images = images.cuda()
             labels = labels.cuda()
 
-        for row in range(images.size(2)):
+        for row in range(0, images.size(2), 1):
             # segmentation of image. Currently using 1xCoverage
-            x = images[:, :, row:row + 1, :]
-            y = labels[:, row]
+            if row + seq_len > images.size(2):
+                continue
+
+            x = images[:, :, row:row + seq_len, :]
+            y = labels[:, row:row + seq_len]
+
+            total_variation = torch.sum(y).data[0]
+
+            if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
+                continue
+            elif random.uniform(0, 1) < total_variation / batch_size < 0.02:
+                continue
+
+
 
             # Forward + Backward + Optimize
-            outputs = model(x)
-            loss = criterion(outputs.cpu(), y.cpu())
+            outputs = model(x, hidden)
+            hidden = repackage_hidden(hidden)
+            # outputs = outputs.view(1, outputs.size(0), -1)
+            loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
 
             # loss count
-            total_images += batchSize
+            total_images += batch_size
             total_loss += loss.data[0]
 
-    print('Validation Loss: ' + str(total_loss/total_images) + "\n")
+    print('Validation Loss: ' + str(total_loss/total_images))
     sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
 
-def train(train_file, validation_file, batchSize, epochLimit, fileName, gpu_mode):
+
+def get_window(index, window_size, length):
+    if index - window_size < 0:
+        return 0, index + window_size + (window_size-index)
+    elif index + window_size >= length:
+        return index - window_size - (window_size - (length - index)), length
+    return index - window_size, index + window_size
+
+
+def repackage_hidden(h):
+    """Wraps hidden states in new Variables, to detach them from their history."""
+    if type(h) == Variable:
+        return Variable(h.data)
+    else:
+        return tuple(repackage_hidden(v) for v in h)
+
+
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
+
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
-    trainDset = PileupDataset(train_file, transformations)
-    trainLoader = DataLoader(trainDset,
-                             batch_size=batchSize,
-                             shuffle=True,
-                             num_workers=4,
-                             pin_memory=gpu_mode # CUDA only
-                             )
+    train_data_set = PileupDataset(train_file, transformations)
+    train_loader = DataLoader(train_data_set,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=16,
+                              pin_memory=gpu_mode
+                              )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = CNN()
+    model = Model()
     if gpu_mode:
-        cnn = cnn.cuda()
+        model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(cnn.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
-    for epoch in range(epochLimit):
+    seq_len = 3
+    iteration_jump = 1
+    for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
-        for i, (images, labels) in enumerate(trainLoader):
-            images = Variable(images)
-            labels = Variable(labels)
+        total_could_be = 0
+        for i, (images, labels) in enumerate(train_loader):
+            hidden = model.init_hidden(images.size(0))
+            # if batch size not distributable among all GPUs then skip
+            if gpu_mode is True and images.size(0) % 8 != 0:
+                continue
+
+            images = Variable(images, requires_grad=False)
+            labels = Variable(labels, requires_grad=False)
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
 
-            for row in range(images.size(2)):
-                # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row + 1, :]
-                y = labels[:, row]
+            for row in range(0, images.size(2), iteration_jump):
+                # segmentation of image. Currently using seq_len
+                if row+seq_len > images.size(2):
+                    continue
+
+                x = images[:, :, row:row+seq_len, :]
+                y = labels[:, row:row + seq_len]
+
+                total_variation = torch.sum(y).data[0]
+                total_could_be += batch_size
+                # print(total_variation)
+
+                if total_variation == 0 and random.uniform(0, 1)*100 > 5:
+                    continue
+                elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
+                    continue
+
+                # print(x)
+                # print(y)
+                # exit()
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
-                outputs = cnn(x)
-                loss = criterion(outputs.cpu(), y.cpu())
+                outputs = model(x, hidden)
+                hidden = repackage_hidden(hidden)
+                # print('Label: ', y.data[0])
+                # print('Values:', outputs.data[0])
+                # print(y.contiguous().view(-1))
+                # exit()
+                # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
+
+                loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
+                # print(outputs.contiguous().view(-1, 3).size())
+                # print(y.contiguous().view(-1).size())
+                # exit()
                 loss.backward()
                 optimizer.step()
 
                 # loss count
-                total_images += batchSize
+                total_images += batch_size
                 total_loss += loss.data[0]
 
-            # if (i+1) % 1 == 0:
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
-        print('Validation Loss: ', end='')
-        validate(validation_file, batchSize, gpu_mode, cnn)
+
+        # After each epoch do validation
+        validate(validation_file, batch_size, gpu_mode, model, seq_len)
+        sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Images: ' + str(total_images) + ' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        torch.save(model, file_name + '_checkpoint_' + str(epoch) + '.pkl')
+        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
+    torch.save(model, file_name+'_final.pkl')
 
-    torch.save(cnn, fileName+'.pkl')
+    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '.pkl\n' + TextColor.END)
+    torch.save(model.state_dict(), file_name+'_final_params'+'.pkl')
 
-    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + fileName + '.pkl\n' + TextColor.END)
-
-    torch.save(cnn.state_dict(), fileName+'-params'+'.pkl')
-
-    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + fileName + '-params.pkl\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '-params.pkl\n' + TextColor.END)
 
 if __name__ == '__main__':
     '''
@@ -164,8 +238,8 @@ if __name__ == '__main__':
         "--model_out",
         type=str,
         required=False,
-        default='./CNN',
-        help="Path and filename to save model, default is ./CNN"
+        default='./model',
+        help="Path and file_name to save model, default is ./model"
     )
     parser.add_argument(
         "--gpu_mode",
