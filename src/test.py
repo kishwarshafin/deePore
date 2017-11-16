@@ -7,10 +7,22 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 from scipy import misc
-from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import sys
 import torchnet.meter as meter
+
+
+def repackage_hidden(h):
+    """Wraps hidden states in new Variables, to detach them from their history."""
+    if h == Variable:
+        return Variable(h.data)
+    else:
+        return repackage_hidden(h)
+
+
+def most_common(lst):
+    return max(set(lst), key=lst.count)
+
 
 def test(csvFile, batchSize, modelPath, gpu_mode):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -27,25 +39,77 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = torch.load(modelPath)
+    model = torch.load(modelPath)
     if gpu_mode:
-        cnn = cnn.cuda()
-    cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
+        model = model.cuda()
+    model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     confusion_matrix = meter.ConfusionMeter(3)
+    seq_len = 3
+    confusion_tensor = torch.zeros(3, 3)
+
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
+        hidden = model.init_hidden(images.size(0))
         pl = labels
         if gpu_mode:
             images = images.cuda()
+        window = 1
+        prediction_stack = []
+        for row in range(0, images.size(2), 1):
+            if row + seq_len > images.size(2):
+                continue
 
-        for row in range(images.size(2)):
-            x = images[:, :, row:row + 1, :]
+            x = images[:, :, row:row + seq_len, :]
             ypl = pl[:, row]
-            preds = cnn(x)
+            # ypl = ypl.contiguous().view(-1)
+            preds = model(x, hidden)
+            # preds = preds.contiguous().view(-1, 3)
+            preds = preds.data.topk(1)[1]
+            prediction_stack.append(preds)
+            # print(row, len(prediction_stack))
+            if row+1 >= seq_len:
+                #prediction_stack.reverse()
+                for i in range(images.size(0)):
+                    pr = []
+                    k = seq_len - 1
+                    for j in range(len(prediction_stack)):
+                        pr.append(prediction_stack[j][i][k][0])
+                        k-=1
+                        # print(k, len(prediction_stack))
+                    p = most_common(pr)
+                    t = ypl[i]
+                    confusion_tensor[t][p] += 1
+                    #if t!=0:
+                        #print(i, t, p, pr)
+                        #print(prediction_stack)
+                        #exit()
+                        # print(t, p, pr)
+                        # exit()
+                prediction_stack.pop(0)
+                # print(ypl)
+                window = 1
+                # print(prediction_stack)
+                # print(row)
+            window += 1
+            #dict[row] = dict[row] +'''
+            '''
+            for i in range(preds.size(0)):
+                #predictions = torch.max(preds[i], 1)[1]
+                targets = ypl[i]
+                predictions = preds[i].data.topk(1)
 
-            confusion_matrix.add(preds.data.squeeze(), ypl.type(torch.LongTensor))
-    print(confusion_matrix.conf)
+                for i in range(predictions[1].size(0)):
+                    p = predictions[1][i][0]
+                    t = targets[i]
+                    confusion_tensor[t][p] += 1
+                    #if t != p:
+                        #print(preds[i], targets)'''
+            # confusion_matrix.add(preds.contiguous().view(-1, 3).data.squeeze(), ypl.contiguous().view(-1))
+        print(confusion_tensor)
+    # print(confusion_tensor)
+    print(confusion_tensor)
+    # print(confusion_matrix)
 
 
 
