@@ -41,7 +41,6 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
-        hidden = model.init_hidden(images.size(0))
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
@@ -69,10 +68,8 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
 
 
             # Forward + Backward + Optimize
-            outputs = model(x, hidden)
-            hidden = repackage_hidden(hidden)
-            # outputs = outputs.view(1, outputs.size(0), -1)
-            loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
+            outputs = model(x)
+            loss = criterion(outputs.contiguous().view(-1, 4), y.contiguous().view(-1))
 
             # loss count
             total_images += batch_size
@@ -112,7 +109,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=3, depth=28, num_classes=4, widen_factor=4, drop_rate=0.0)
+    model = Model(input_channels=3, depth=10, num_classes=4, widen_factor=4, drop_rate=0.0)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
@@ -160,8 +157,9 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 optimizer.zero_grad()
                 outputs = model(x)
 
-                loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
-
+                loss = criterion(outputs.contiguous().view(-1, 4), y.contiguous().view(-1))
+                # print(outputs.size(), y.size())
+                # exit()
                 loss.backward()
                 optimizer.step()
 

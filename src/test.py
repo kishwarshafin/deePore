@@ -46,11 +46,10 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
 
     confusion_matrix = meter.ConfusionMeter(3)
     seq_len = 3
-    confusion_tensor = torch.zeros(3, 3)
+    confusion_tensor = torch.zeros(4, 4)
 
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
-        hidden = model.init_hidden(images.size(0))
         pl = labels
         if gpu_mode:
             images = images.cuda()
@@ -63,7 +62,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
             x = images[:, :, row:row + seq_len, :]
             ypl = pl[:, row]
             # ypl = ypl.contiguous().view(-1)
-            preds = model(x, hidden)
+            preds = model(x)
             # preds = preds.contiguous().view(-1, 3)
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)

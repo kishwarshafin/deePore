@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from collections import OrderedDict
 import numpy as np
 import math
-
+import torch
 
 class SingleBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, drop_rate=0.0):
@@ -57,19 +57,22 @@ class Model(nn.Module):
         n = int((depth - 4) / 6)
         block = SingleBlock
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(input_channels, nChannels[0], kernel_size=3, stride=1,
-                               padding=1, bias=False)
+        self.conv1 = nn.Conv2d(input_channels, nChannels[0], kernel_size=(1, 15), stride=1,
+                               padding=(0, 7), bias=False)
+        self.conv2 = nn.Conv2d(nChannels[0], nChannels[0], kernel_size=(3, 3), stride=1,
+                               padding=(1, 1), bias=False)
         # 1st block
         self.block1 = LayerBlock(n, nChannels[0], nChannels[1], block, 1, drop_rate)
         # 2nd block
-        self.block2 = LayerBlock(n, nChannels[1], nChannels[2], block, 2, drop_rate)
+        self.block2 = LayerBlock(n, nChannels[1], nChannels[2], block, (1, 2), drop_rate)
         # 3rd block
-        self.block3 = LayerBlock(n, nChannels[2], nChannels[3], block, 2, drop_rate)
+        self.block3 = LayerBlock(n, nChannels[2], nChannels[3], block, (1, 2), drop_rate)
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(nChannels[3])
         self.relu = nn.ReLU(inplace=True)
-        self.fc = nn.Linear(nChannels[3], num_classes)
+        self.fc = nn.Linear(nChannels[3] * 19, num_classes)
         self.nChannels = nChannels[3]
+        self.num_classes = num_classes
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -82,14 +85,23 @@ class Model(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        x.size()
+        batch_size = x.size(0)
+        seq_len = x.size(2)
         out = self.conv1(x)
-        print(out.size())
-        exit()
+        out = self.conv2(out)
+        # print(out.size())
         out = self.block1(out)
+        # print(out.size())
         out = self.block2(out)
+        # print(out.size())
         out = self.block3(out)
+        # print(out.size())
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.nChannels)
-        return self.fc(out)
+        # print(out.size())
+        out = F.avg_pool2d(out, (1, 2))
+        # print(out.size())
+        out = out.view(batch_size, seq_len, -1)
+        out = self.fc(out)
+        # print(out.size())
+        # exit()
+        return out
