@@ -109,7 +109,8 @@ class Pileup:
                 self.insertColumns[i].append({'A':list(),
                                               'C':list(),
                                               'G':list(),
-                                              'T':list()})
+                                              'T':list(),
+                                              'N':list()})
 
             self.insertColumns[i][k][readCharacters[k]].append(tuple(self.SNPtoRGB[readCharacters[k]]+[qualities[k]]))
 
