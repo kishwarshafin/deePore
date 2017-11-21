@@ -41,7 +41,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
-        # hidden = model.init_hidden(images.size(0))
+        hidden = model.module.init_hidden(images.size(0))
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
@@ -137,7 +137,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(train_loader):
-            # hidden = model.init_hidden(images.size(0))
+            hidden = model.module.init_hidden(images.size(0))
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
