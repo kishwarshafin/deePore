@@ -49,11 +49,15 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
 
         images = Variable(images, volatile=True)
         labels = Variable(labels, volatile=True)
-        hidden = model.module.init_hidden(images.size(0))
+
+
         if gpu_mode:
+            hidden = model.module.init_hidden(images.size(0))
             images = images.cuda()
             labels = labels.cuda()
             hidden = hidden.cuda()
+        else:
+            hidden = model.init_hidden(images.size(0))
 
         for row in range(0, images.size(2), 1):
             # segmentation of image. Currently using 1xCoverage
@@ -125,8 +129,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channel=4, output_channel=512, coverage_depth=200,
-                  hidden_size=500, hidden_layer=5, class_n=num_classes, bidirectional=True)
+    model = Model(input_channel=4, output_channel=32, coverage_depth=200,
+                  hidden_size=100, hidden_layer=3, class_n=num_classes, bidirectional=True)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
@@ -148,11 +152,14 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
             images = Variable(images, requires_grad=False)
             labels = Variable(labels, requires_grad=False)
-            hidden = model.module.init_hidden(images.size(0))
+
             if gpu_mode:
+                hidden = model.module.init_hidden(images.size(0))
                 images = images.cuda()
                 labels = labels.cuda()
                 hidden = hidden.cuda()
+            else:
+                hidden = model.init_hidden(images.size(0))
 
             for row in range(0, images.size(2), iteration_jump):
                 # segmentation of image. Currently using seq_len

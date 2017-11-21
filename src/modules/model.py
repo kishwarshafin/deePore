@@ -150,8 +150,10 @@ class Model(nn.Module):
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
         x = self.cnn_fc_rnn(x)
-        x = self.rnn_layer(x, hidden)
+        print(type(x), print(type(hidden)))
 
+        x = self.rnn_layer(x, hidden)
+        exit()
         x = self.fully_connected_layer(x)
         x = x.transpose(0, 1)
         return x
