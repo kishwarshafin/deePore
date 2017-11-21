@@ -41,15 +41,19 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
-        hidden = model.module.init_hidden(images.size(0))
+
+        if gpu_mode:
+            hidden = hidden.cuda()
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
         images = Variable(images, volatile=True)
         labels = Variable(labels, volatile=True)
+        hidden = model.module.init_hidden(images.size(0))
         if gpu_mode:
             images = images.cuda()
             labels = labels.cuda()
+            hidden = hidden.cuda()
 
         for row in range(0, images.size(2), 1):
             # segmentation of image. Currently using 1xCoverage
@@ -137,16 +141,18 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         total_loss = 0
         total_images = 0
         for i, (images, labels) in enumerate(train_loader):
-            hidden = model.module.init_hidden(images.size(0))
+
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
 
             images = Variable(images, requires_grad=False)
             labels = Variable(labels, requires_grad=False)
+            hidden = model.module.init_hidden(images.size(0))
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
+                hidden = hidden.cuda()
 
             for row in range(0, images.size(2), iteration_jump):
                 # segmentation of image. Currently using seq_len
