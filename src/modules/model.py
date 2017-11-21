@@ -57,7 +57,8 @@ class BatchRNN(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, input_channel=3, output_channel=256, coverage_depth=50, hidden_size=500, hidden_layer=3, class_n=3, bidirectional=True):
+    def __init__(self, input_channel, output_channel, coverage_depth,
+                 hidden_size, hidden_layer, class_n, bidirectional):
         super(Model, self).__init__()
         self.input_channel = input_channel
         self.output_channel = output_channel

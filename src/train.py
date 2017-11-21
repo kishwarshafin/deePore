@@ -16,7 +16,7 @@ from modules.dataset import PileupDataset, TextColor
 import random
 
 
-def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
+def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -59,6 +59,15 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
             x = images[:, :, row:row + seq_len, :]
             y = labels[:, row:row + seq_len]
 
+            total_variation = torch.sum(y.eq(2)).data[0]
+            total_variation += torch.sum(y.eq(3)).data[0]
+            # print(total_variation)
+
+            if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
+                continue
+            elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
+                continue
+
             total_variation = torch.sum(y).data[0]
 
             if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
@@ -75,7 +84,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len=1):
             loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
 
             # loss count
-            total_images += batch_size
+            total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
 
     print('Validation Loss: ' + str(total_loss/total_images))
@@ -98,7 +107,7 @@ def repackage_hidden(h):
         return tuple(repackage_hidden(v) for v in h)
 
 
-def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len, num_classes=4):
 
     transformations = transforms.Compose([transforms.ToTensor()])
 
@@ -112,22 +121,21 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model()
+    model = Model(input_channel=4, output_channel=512, coverage_depth=200,
+                  hidden_size=500, hidden_layer=5, class_n=num_classes, bidirectional=True)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
-    seq_len = 3
     iteration_jump = 1
     for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
-        total_could_be = 0
         for i, (images, labels) in enumerate(train_loader):
             hidden = model.init_hidden(images.size(0))
             # if batch size not distributable among all GPUs then skip
@@ -148,13 +156,12 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 x = images[:, :, row:row+seq_len, :]
                 y = labels[:, row:row + seq_len]
 
-                total_variation = torch.sum(y).data[0]
-                total_could_be += batch_size
-                # print(total_variation)
+                total_variation = torch.sum(y.eq(2)).data[0]
+                total_variation += torch.sum(y.eq(3)).data[0]
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
-                elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
+                elif random.uniform(0, 1) < total_variation/(batch_size*seq_len) < 0.02:
                     continue
 
                 # print(x)
@@ -171,7 +178,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # exit()
                 # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
 
-                loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
+                loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
                 # print(outputs.contiguous().view(-1, 3).size())
                 # print(y.contiguous().view(-1).size())
                 # exit()
@@ -179,7 +186,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 optimizer.step()
 
                 # loss count
-                total_images += batch_size
+                total_images += (batch_size*seq_len)
                 total_loss += loss.data[0]
 
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
@@ -247,8 +254,15 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
+    parser.add_argument(
+        "--seq_len",
+        type=int,
+        required=False,
+        default=5,
+        help="If true then cuda is on."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
+    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode, FLAGS.seq_len)
 
 
