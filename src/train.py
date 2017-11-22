@@ -41,13 +41,11 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classe
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
-        print(gpu_mode, images.size())
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
         images = Variable(images, volatile=True)
         labels = Variable(labels, volatile=True)
-
         if gpu_mode:
             images = images.cuda()
             labels = labels.cuda()
@@ -63,11 +61,10 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classe
             total_variation = torch.sum(y.eq(2)).data[0]
             total_variation += torch.sum(y.eq(3)).data[0]
 
-            print(row, total_variation)
             if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
                 continue
-            # elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
-                # continue
+            elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
+                continue
 
             # Forward + Backward + Optimize
             outputs = model(x)
