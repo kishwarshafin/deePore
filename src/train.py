@@ -41,6 +41,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classe
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
+        print(gpu_mode, images.size())
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
