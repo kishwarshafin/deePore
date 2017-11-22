@@ -37,7 +37,6 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    confusion_matrix = meter.ConfusionMeter(num_classes)
     seq_len = seq_len
     confusion_tensor = torch.zeros(num_classes, num_classes)
 
@@ -49,6 +48,10 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
         window = 1
         prediction_stack = []
         for row in range(0, images.size(2), 1):
+
+            if gpu_mode and images.size(0) % 8 != 0:
+                continue
+
             if row + seq_len > images.size(2):
                 continue
 
