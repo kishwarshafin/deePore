@@ -63,6 +63,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)
             # print(row, len(prediction_stack))
+            print(len(prediction_stack))
             if row+1 >= seq_len:
                 #prediction_stack.reverse()
                 for i in range(images.size(0)):
