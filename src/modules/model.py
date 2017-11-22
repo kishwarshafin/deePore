@@ -41,14 +41,14 @@ class BatchRNN(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
-        self.batch_norm = SequenceWise(nn.BatchNorm2d(input_size)) if batch_norm else None
+        # self.batch_norm = SequenceWise(nn.BatchNorm2d(input_size)) if batch_norm else None
         self.rnn = rnn_type(input_size=input_size, hidden_size=hidden_size,
                             bidirectional=bidirectional, bias=False)
         self.num_directions = 2 if bidirectional else 1
 
     def forward(self, x):
-        if self.batch_norm is not None:
-            x = self.batch_norm(x)
+        # if self.batch_norm is not None:
+            # x = self.batch_norm(x)
         x, _ = self.rnn(x)
         if self.bidirectional:
             x = x.contiguous().view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
