@@ -16,7 +16,7 @@ from modules.dataset import PileupDataset, TextColor
 import random
 
 
-def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
+def validate(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -62,33 +62,24 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
 
             total_variation = torch.sum(y.eq(2)).data[0]
             total_variation += torch.sum(y.eq(3)).data[0]
-            # print(total_variation)
 
             if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
                 continue
             elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
                 continue
 
-            total_variation = torch.sum(y).data[0]
-
-            if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
-                continue
-            elif random.uniform(0, 1) < total_variation / batch_size < 0.02:
-                continue
-
-
-
             # Forward + Backward + Optimize
             outputs = model(x)
             # outputs = outputs.view(1, outputs.size(0), -1)
-            loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
+            loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
 
-    print('Validation Loss: ' + str(total_loss/total_images))
-    sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
+    avg_loss = total_loss / total_images if total_images else 0
+    print('Validation Loss: ' + str(avg_loss))
+    sys.stderr.write('Validation Loss: ' + str(avg_loss) + "\n")
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len, num_classes=4):
@@ -181,20 +172,22 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
 
         # After each epoch do validation
-        validate(validation_file, batch_size, gpu_mode, model, seq_len)
-        sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
+        validate(validation_file, batch_size, gpu_mode, model, seq_len, num_classes)
+
+        avg_loss = total_loss / total_images if total_images else 0
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
+
         torch.save(model, file_name + '_checkpoint_' + str(epoch) + '.pkl')
-        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
+        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '_params' + '.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
+
     torch.save(model, file_name+'_final.pkl')
+    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '_final.pkl\n' + TextColor.END)
 
-    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '.pkl\n' + TextColor.END)
     torch.save(model.state_dict(), file_name+'_final_params'+'.pkl')
-
-    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '-params.pkl\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '_final_params.pkl\n' + TextColor.END)
 
 if __name__ == '__main__':
     '''
