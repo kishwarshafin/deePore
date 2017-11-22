@@ -5,6 +5,7 @@ from collections import OrderedDict
 import numpy as np
 
 
+##===This part of the code is copied from deepspeech.pytorch module===#
 class SequenceWise(nn.Module):
     def __init__(self, module):
         """
@@ -29,10 +30,13 @@ class SequenceWise(nn.Module):
         return tmpstr
 
 
-class InferenceBatchLogSoftmax(nn.Module):
+class InferenceBatchSoftmax(nn.Module):
     def forward(self, input_):
-        batch_size = input_.size()[0]
-        return torch.stack([F.log_softmax(input_[i]) for i in range(batch_size)], 0)
+        if not self.training:
+            batch_size = input_.size()[0]
+            return torch.stack([F.softmax(input_[i]) for i in range(batch_size)], 0)
+        else:
+            return input_
 
 
 class BatchRNN(nn.Module):
@@ -41,18 +45,20 @@ class BatchRNN(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
-        # self.batch_norm = SequenceWise(nn.BatchNorm2d(input_size)) if batch_norm else None
+        self.batch_norm = SequenceWise(nn.BatchNorm1d(input_size)) if batch_norm else None
         self.rnn = rnn_type(input_size=input_size, hidden_size=hidden_size,
                             bidirectional=bidirectional, bias=False)
         self.num_directions = 2 if bidirectional else 1
 
+    def flatten_parameters(self):
+        self.rnn.flatten_parameters()
+
     def forward(self, x):
-        # if self.batch_norm is not None:
-            # x = self.batch_norm(x)
+        if self.batch_norm is not None:
+            x = self.batch_norm(x)
         x, _ = self.rnn(x)
         if self.bidirectional:
-            x = x.contiguous().view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
-        self.rnn.flatten_parameters()
+            x = x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
         return x
 
 
@@ -79,15 +85,17 @@ class Model(nn.Module):
         # ----FC before CNN---- #s
         self.cnn_fc_rnn = nn.Linear(coverage_depth * output_channel, hidden_size)
         # -----RNN----- #
-        # self.hidden = self.init_hidden(batch_size)
+        rnn_type = nn.GRU
         rnn_input_size = hidden_size
         rnns = []
-        rnn = BatchRNN(rnn_input_size, hidden_size, nn.GRU, True, True)
+        rnn = BatchRNN(input_size=rnn_input_size, hidden_size=hidden_size, rnn_type=rnn_type,
+                       bidirectional=bidirectional, batch_norm=False)
         rnns.append(('0', rnn))
         for x in range(hidden_layer - 1):
-            rnn = BatchRNN(hidden_size, hidden_size, nn.GRU, True, True)
+            rnn = BatchRNN(input_size=hidden_size, hidden_size=hidden_size, rnn_type=rnn_type,
+                           bidirectional=bidirectional)
             rnns.append(('%d' % (x + 1), rnn))
-        self.rnns = rnns
+        self.rnns = nn.Sequential(OrderedDict(rnns))
         # -----FCL----- #
         self.fc1 = nn.Linear(hidden_size, self.classN)
         self.inference_log_softmax = nn.LogSoftmax()
@@ -141,7 +149,7 @@ class Model(nn.Module):
                 # x = x.sum(2)
                 # x = x.view(x.size(0), x.size(1), -1)
             # print(x.size())
-        #print(x.size())
+        # print(x.size())
         return x
 
     def forward(self, x):
@@ -158,7 +166,7 @@ class Model(nn.Module):
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
         x = self.cnn_fc_rnn(x)
         # print(x.size())
-        # x = self.rnn_layer(x)
+        x = self.rnns(x)
         x = self.fully_connected_layer(x)
         # x = x.transpose(0, 1)
         return x
