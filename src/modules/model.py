@@ -170,5 +170,5 @@ class Model(nn.Module):
         # print(x.size())
         x = self.rnns(x)
         x = self.fully_connected_layer(x)
-        # x = x.transpose(0, 1)
+        x = x.transpose(0, 1)
         return x
