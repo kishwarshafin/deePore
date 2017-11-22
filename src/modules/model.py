@@ -157,8 +157,8 @@ class Model(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
         x = self.cnn_fc_rnn(x)
-        print(x.size())
-        x = self.rnn_layer(x)
+        # print(x.size())
+        # x = self.rnn_layer(x)
         x = self.fully_connected_layer(x)
         # x = x.transpose(0, 1)
         return x
