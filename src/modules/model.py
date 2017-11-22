@@ -56,7 +56,9 @@ class BatchRNN(nn.Module):
     def forward(self, x):
         if self.batch_norm is not None:
             x = self.batch_norm(x)
+        self.flatten_parameters()
         x, _ = self.rnn(x)
+        self.flatten_parameters()
         if self.bidirectional:
             x = x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
         return x
