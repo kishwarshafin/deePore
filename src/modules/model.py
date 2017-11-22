@@ -123,11 +123,12 @@ class Model(nn.Module):
         return x
 
     def rnn_layer(self, x, hidden):
+        print(type(x.data), type(hidden.data))
         hidden = hidden.view(hidden.size(1), hidden.size(0), hidden.size(2)).contiguous()
         # print(x.size(), hidden.size())
         for i, rnn in self.rnns:
-            # print(rnn)
-            # print(x.size(), hidden.size())
+            print(i, rnn)
+            print(x.size(), hidden.size())
             x, hidden = rnn(x, hidden)
             # print(x.size())
             # print(x.size())
@@ -137,7 +138,7 @@ class Model(nn.Module):
                 x = x.sum(2)
                 x = x.view(x.size(0), x.size(1), -1)
             # print(x.size())
-        # print(x.size())
+        print(x.size())
         return x
 
     def forward(self, x, hidden):

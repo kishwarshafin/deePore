@@ -29,11 +29,11 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     model = trained_model.eval()
-    if gpu_mode:
-        model = model.cuda()
-
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
+    if gpu_mode:
+        model = model.cuda()
+        criterion = criterion.cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
@@ -131,12 +131,15 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     model = Model(input_channel=4, output_channel=32, coverage_depth=200,
                   hidden_size=100, hidden_layer=3, class_n=num_classes, bidirectional=True)
-    if gpu_mode:
-        model = torch.nn.DataParallel(model).cuda()
+
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    if gpu_mode:
+        model = torch.nn.DataParallel(model).cuda()
+        optimizer = criterion.cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
