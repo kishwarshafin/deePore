@@ -65,8 +65,8 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classe
 
             if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
                 continue
-            elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
-                continue
+            # elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
+                # continue
 
             # Forward + Backward + Optimize
             outputs = model(x)
