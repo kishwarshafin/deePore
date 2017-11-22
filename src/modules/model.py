@@ -58,7 +58,7 @@ class BatchRNN(nn.Module):
 
 class Model(nn.Module):
     def __init__(self, input_channel, output_channel, coverage_depth,
-                 hidden_size, hidden_layer, class_n, bidirectional):
+                 hidden_size, hidden_layer, class_n, bidirectional, batch_size):
         super(Model, self).__init__()
         self.input_channel = input_channel
         self.output_channel = output_channel
@@ -79,6 +79,7 @@ class Model(nn.Module):
         # ----FC before CNN---- #s
         self.cnn_fc_rnn = nn.Linear(coverage_depth * output_channel, hidden_size)
         # -----RNN----- #
+        # self.hidden = self.init_hidden(batch_size)
         rnn_input_size = hidden_size
         rnns = []
         rnn = nn.GRU(input_size=rnn_input_size, batch_first=True, hidden_size=hidden_size, bidirectional=bidirectional)
@@ -114,7 +115,7 @@ class Model(nn.Module):
 
     def init_hidden(self, batch_size):
         weight = next(self.parameters()).data
-        return Variable(weight.new(batch_size, self.direction * self.hidden_layer, self.hidden_size).zero_())
+        return Variable(weight.new(self.direction * self.hidden_layer, batch_size, self.hidden_size).zero_())
 
     def fully_connected_layer(self, x):
         # batch_size = x.size(0)
@@ -122,14 +123,16 @@ class Model(nn.Module):
         x = self.fc1(x)
         return x
 
-    def rnn_layer(self, x, hidden):
-        print(type(x.data), type(hidden.data))
-        hidden = hidden.view(hidden.size(1), hidden.size(0), hidden.size(2)).contiguous()
+    def rnn_layer(self, x):
         # print(x.size(), hidden.size())
+        hidden = self.init_hidden(x.size(0))
         for i, rnn in self.rnns:
-            print(i, rnn)
-            print(x.size(), hidden.size())
-            x, hidden = rnn(x, hidden)
+            # rnn.flatten_parameters()
+            # print(i, rnn)
+            # print(x.size(), self.hidden.size())
+            x, h = rnn(x,hidden)
+            hidden = h
+            # self.hidden = hidden
             # print(x.size())
             # print(x.size())
             if self.bidirectional:
@@ -138,10 +141,10 @@ class Model(nn.Module):
                 x = x.sum(2)
                 x = x.view(x.size(0), x.size(1), -1)
             # print(x.size())
-        print(x.size())
+        #print(x.size())
         return x
 
-    def forward(self, x, hidden):
+    def forward(self, x):
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
@@ -153,7 +156,7 @@ class Model(nn.Module):
         # x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
         x = self.cnn_fc_rnn(x)
 
-        x = self.rnn_layer(x, hidden)
+        x = self.rnn_layer(x)
         x = self.fully_connected_layer(x)
         # x = x.transpose(0, 1)
         return x

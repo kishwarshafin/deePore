@@ -41,9 +41,6 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
     total_images = 0
 
     for i, (images, labels) in enumerate(validation_loader):
-
-        if gpu_mode:
-            hidden = hidden.cuda()
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
@@ -52,12 +49,8 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
 
 
         if gpu_mode:
-            hidden = model.module.init_hidden(images.size(0))
             images = images.cuda()
             labels = labels.cuda()
-            hidden = hidden.cuda()
-        else:
-            hidden = model.init_hidden(images.size(0))
 
         for row in range(0, images.size(2), 1):
             # segmentation of image. Currently using 1xCoverage
@@ -86,8 +79,7 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
 
 
             # Forward + Backward + Optimize
-            outputs = model(x, hidden)
-            hidden = repackage_hidden(hidden)
+            outputs = model(x)
             # outputs = outputs.view(1, outputs.size(0), -1)
             loss = criterion(outputs.contiguous().view(-1, 3), y.contiguous().view(-1))
 
@@ -97,22 +89,6 @@ def validate(data_file, batch_size, gpu_mode, trained_model, seq_len):
 
     print('Validation Loss: ' + str(total_loss/total_images))
     sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
-
-
-def get_window(index, window_size, length):
-    if index - window_size < 0:
-        return 0, index + window_size + (window_size-index)
-    elif index + window_size >= length:
-        return index - window_size - (window_size - (length - index)), length
-    return index - window_size, index + window_size
-
-
-def repackage_hidden(h):
-    """Wraps hidden states in new Variables, to detach them from their history."""
-    if type(h) == Variable:
-        return Variable(h.data)
-    else:
-        return tuple(repackage_hidden(v) for v in h)
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len, num_classes=4):
@@ -129,8 +105,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channel=4, output_channel=32, coverage_depth=200,
-                  hidden_size=100, hidden_layer=3, class_n=num_classes, bidirectional=True)
+    model = Model(input_channel=4, output_channel=32, coverage_depth=200, hidden_size=100,
+                  hidden_layer=3, class_n=num_classes, bidirectional=True, batch_size=batch_size)
 
 
     # Loss and Optimizer
@@ -157,12 +133,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             labels = Variable(labels, requires_grad=False)
 
             if gpu_mode:
-                hidden = model.module.init_hidden(images.size(0))
                 images = images.cuda()
                 labels = labels.cuda()
-                hidden = hidden.cuda()
-            else:
-                hidden = model.init_hidden(images.size(0))
 
             for row in range(0, images.size(2), iteration_jump):
                 # segmentation of image. Currently using seq_len
@@ -186,8 +158,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
-                outputs = model(x, hidden)
-                hidden = repackage_hidden(hidden)
+                outputs = model(x)
                 # print('Label: ', y.data[0])
                 # print('Values:', outputs.data[0])
                 # print(y.contiguous().view(-1))
