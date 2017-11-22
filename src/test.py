@@ -59,12 +59,12 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
             ypl = pl[:, row]
             # ypl = ypl.contiguous().view(-1)
             preds = model(x)
-            print(preds.size())
+            # print(preds.size())
             # preds = preds.contiguous().view(-1, 3)
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)
             # print(row, len(prediction_stack))
-            print(len(prediction_stack), len(prediction_stack[0]), len(prediction_stack[0][0]))
+            # print(len(prediction_stack), len(prediction_stack[0]), len(prediction_stack[0][0]))
             if row+1 >= seq_len:
                 #prediction_stack.reverse()
                 for i in range(images.size(0)):
