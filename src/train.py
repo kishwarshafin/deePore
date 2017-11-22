@@ -94,8 +94,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channel=4, output_channel=32, coverage_depth=200, hidden_size=100,
-                  hidden_layer=3, class_n=num_classes, bidirectional=True, batch_size=batch_size)
+    model = Model(input_channel=4, output_channel=512, coverage_depth=200, hidden_size=200,
+                  hidden_layer=5, class_n=num_classes, bidirectional=True, batch_size=batch_size)
 
 
     # Loss and Optimizer
@@ -141,23 +141,12 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 elif random.uniform(0, 1) < total_variation/(batch_size*seq_len) < 0.02:
                     continue
 
-                # print(x)
-                # print(y)
-                # exit()
-
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
-                # print('Label: ', y.data[0])
-                # print('Values:', outputs.data[0])
-                # print(y.contiguous().view(-1))
-                # exit()
-                # outputs = outputs.view(1, outputs.size(0), -1) required for CTCLoss
 
                 loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
-                # print(outputs.contiguous().view(-1, 3).size())
-                # print(y.contiguous().view(-1).size())
-                # exit()
+
                 loss.backward()
                 optimizer.step()
 
