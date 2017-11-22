@@ -125,13 +125,13 @@ class Model(nn.Module):
 
     def rnn_layer(self, x):
         # print(x.size(), hidden.size())
-        hidden = self.init_hidden(x.size(0))
+        # hidden = self.init_hidden(x.size(0))
         for i, rnn in self.rnns:
             # rnn.flatten_parameters()
             # print(i, rnn)
             # print(x.size(), self.hidden.size())
-            x, h = rnn(x,hidden)
-            hidden = h
+            x, _ = rnn(x)
+            # hidden = h
             # self.hidden = hidden
             # print(x.size())
             # print(x.size())
