@@ -12,19 +12,12 @@ import sys
 import torchnet.meter as meter
 
 
-def repackage_hidden(h):
-    """Wraps hidden states in new Variables, to detach them from their history."""
-    if h == Variable:
-        return Variable(h.data)
-    else:
-        return repackage_hidden(h)
-
 
 def most_common(lst):
     return max(set(lst), key=lst.count)
 
 
-def test(csvFile, batchSize, modelPath, gpu_mode):
+def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -44,13 +37,12 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    confusion_matrix = meter.ConfusionMeter(3)
-    seq_len = 3
-    confusion_tensor = torch.zeros(3, 3)
+    confusion_matrix = meter.ConfusionMeter(num_classes)
+    seq_len = seq_len
+    confusion_tensor = torch.zeros(num_classes, num_classes)
 
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
-        hidden = model.init_hidden(images.size(0))
         pl = labels
         if gpu_mode:
             images = images.cuda()
@@ -63,7 +55,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
             x = images[:, :, row:row + seq_len, :]
             ypl = pl[:, row]
             # ypl = ypl.contiguous().view(-1)
-            preds = model(x, hidden)
+            preds = model(x)
             # preds = preds.contiguous().view(-1, 3)
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)
@@ -144,8 +136,22 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
+    parser.add_argument(
+        "--seq_len",
+        type=int,
+        required=False,
+        default=5,
+        help="Sequence window size."
+    )
+    parser.add_argument(
+        "--num_classes",
+        type=int,
+        required=False,
+        default=4,
+        help="Sequence window size."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode)
+    test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode,FLAGS.seq_len,FLAGS.num_classes)
 
 
