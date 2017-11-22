@@ -94,8 +94,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channel=4, output_channel=32, coverage_depth=200, hidden_size=50,
-                  hidden_layer=2, class_n=num_classes, bidirectional=True, batch_size=batch_size)
+    model = Model(input_channel=4, output_channel=512, coverage_depth=200, hidden_size=500,
+                  hidden_layer=5, class_n=num_classes, bidirectional=True, batch_size=batch_size)
 
 
     # Loss and Optimizer
