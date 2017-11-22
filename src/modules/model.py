@@ -51,7 +51,7 @@ class BatchRNN(nn.Module):
             x = self.batch_norm(x)
         x, _ = self.rnn(x)
         if self.bidirectional:
-            x = x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
+            x = x.contiguous().view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
         self.rnn.flatten_parameters()
         return x
 
@@ -82,10 +82,10 @@ class Model(nn.Module):
         # self.hidden = self.init_hidden(batch_size)
         rnn_input_size = hidden_size
         rnns = []
-        rnn = nn.GRU(input_size=rnn_input_size, batch_first=True, hidden_size=hidden_size, bidirectional=bidirectional)
+        rnn = BatchRNN(rnn_input_size, hidden_size, nn.GRU, True, True)
         rnns.append(('0', rnn))
         for x in range(hidden_layer - 1):
-            rnn = nn.GRU(input_size=hidden_size, batch_first=True, hidden_size=hidden_size, bidirectional=bidirectional)
+            rnn = BatchRNN(hidden_size, hidden_size, nn.GRU, True, True)
             rnns.append(('%d' % (x + 1), rnn))
         self.rnns = rnns
         # -----FCL----- #
@@ -130,16 +130,16 @@ class Model(nn.Module):
             # rnn.flatten_parameters()
             # print(i, rnn)
             # print(x.size(), self.hidden.size())
-            x, _ = rnn(x)
+            x = rnn(x)
             # hidden = h
             # self.hidden = hidden
             # print(x.size())
             # print(x.size())
-            if self.bidirectional:
+            # if self.bidirectional:
                 # (TxNxH*2) -> (TxNxH) by sum
-                x = x.contiguous().view(x.size(0), x.size(1), 2, -1)
-                x = x.sum(2)
-                x = x.view(x.size(0), x.size(1), -1)
+                # x = x.contiguous().view(x.size(0), x.size(1), 2, -1)
+                # x = x.sum(2)
+                # x = x.view(x.size(0), x.size(1), -1)
             # print(x.size())
         #print(x.size())
         return x
@@ -152,10 +152,12 @@ class Model(nn.Module):
         x = self.residual_layer(x, layer=4)
 
         sizes = x.size()
-        x = x.view(sizes[0], sizes[2], sizes[1]*sizes[3]).contiguous()  # Collapse feature dimension
-        # x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
+        x = x.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
+        sizes = x.size()
+        x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])
+        x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
         x = self.cnn_fc_rnn(x)
-
+        print(x.size())
         x = self.rnn_layer(x)
         x = self.fully_connected_layer(x)
         # x = x.transpose(0, 1)
