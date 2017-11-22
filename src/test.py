@@ -59,6 +59,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
             ypl = pl[:, row]
             # ypl = ypl.contiguous().view(-1)
             preds = model(x)
+            print(preds.size())
             # preds = preds.contiguous().view(-1, 3)
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)
