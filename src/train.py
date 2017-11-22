@@ -115,7 +115,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
-        optimizer = criterion.cuda()
+        criterion = criterion.cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
