@@ -11,10 +11,10 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import CNN
+from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
 import random
-
+np.set_printoptions(threshold=np.nan)
 
 def validate(data_file, batch_size, gpu_mode, trained_model):
     transformations = transforms.Compose([transforms.ToTensor()])
@@ -74,7 +74,7 @@ def get_window(index, window_size, length):
     return index - window_size, index + window_size
 
 
-def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode):
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -87,12 +87,13 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = CNN()
+    model = Model(input_channels=4, depth=40, num_classes=4, widen_factor=16,
+                  drop_rate=0.0, column_width=200, seq_len=seq_len*2)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
@@ -100,7 +101,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(epoch_limit):
         total_loss = 0
         total_images = 0
-        total_could_be = 0
         for i, (images, labels) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
@@ -115,10 +115,21 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
             for row in range(images.size(2)):
                 # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row+1, :]
+                left = max(0, row-seq_len)
+                right = min(row+seq_len, images.size(2))
+                x = images[:, :, left:right, :]
                 y = labels[:, row]
-                total_variation = torch.sum(y).data[0]
-                total_could_be += batch_size
+
+                # Pad the images if window size doesn't fit
+                if row-left < seq_len:
+                    padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len-(row-left), x.size(3)))
+                    x = torch.cat((padding, x), 2)
+                if right-row < seq_len:
+                    padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                    x = torch.cat((x, padding), 2)
+
+                total_variation = torch.sum(y.eq(2)).data[0]
+                total_variation += torch.sum(y.eq(3)).data[0]
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
@@ -128,6 +139,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
+
                 loss = criterion(outputs, y)
                 loss.backward()
                 optimizer.step()
@@ -136,26 +148,35 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 total_images += batch_size
                 total_loss += loss.data[0]
 
+            avg_loss = total_loss/total_images if total_images else 0
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
-            sys.stderr.write(" Loss: " + str(total_loss/total_images) + "\n" + TextColor.END)
-            print(str(epoch) + "\t" + str(i + 1) + "\t" + str(total_loss/total_images))
+            sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
+            print(str(epoch) + "\t" + str(i + 1) + "\t" + str(avg_loss))
 
         # After each epoch do validation
-        validate(validation_file, batch_size, gpu_mode, model)
-        sys.stderr.write(TextColor.YELLOW + 'Could be: ' + str(total_could_be) + ' Chosen: ' + str(total_images) + "\n" + TextColor.END)
+        avg_loss = total_loss / total_images if total_images else 0
+        # validate(validation_file, batch_size, gpu_mode, model)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
-        sys.stderr.write(' Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+        sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
+
         torch.save(model, file_name + '_checkpoint_' + str(epoch) + '.pkl')
-        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '-params' + '.pkl')
+        torch.save(model.state_dict(), file_name + '_checkpoint_' + str(epoch) + '_params' + '.pkl')
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
+
     torch.save(model, file_name+'_final.pkl')
+    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '_final.pkl\n' + TextColor.END)
 
-    sys.stderr.write(TextColor.PURPLE + 'Model saved as:' + file_name + '.pkl\n' + TextColor.END)
     torch.save(model.state_dict(), file_name+'_final_params'+'.pkl')
+    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '_final_params.pkl\n' + TextColor.END)
 
-    sys.stderr.write(TextColor.PURPLE + 'Model parameters saved as:' + file_name + '-params.pkl\n' + TextColor.END)
 
+def directory_control(file_path):
+    directory = os.path.dirname(file_path)
+    try:
+        os.stat(directory)
+    except:
+        os.mkdir(directory)
 if __name__ == '__main__':
     '''
     Processes arguments and performs tasks to generate the pileup.
@@ -189,6 +210,13 @@ if __name__ == '__main__':
         help="Epoch size for training iteration."
     )
     parser.add_argument(
+        "--seq_len",
+        type=int,
+        required=False,
+        default=10,
+        help="Sequence to look at while doing prediction."
+    )
+    parser.add_argument(
         "--model_out",
         type=str,
         required=False,
@@ -201,8 +229,10 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
-    FLAGS, unparsed = parser.parse_known_args()
 
-    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
+    FLAGS, unparsed = parser.parse_known_args()
+    directory_control(FLAGS.model_out.rpartition('/')[0]+"/")
+    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size,
+          FLAGS.model_out, FLAGS.gpu_mode, FLAGS.seq_len)
 
 

@@ -7,19 +7,19 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 from scipy import misc
-from modules.model import CNN
 from modules.dataset import PileupDataset, TextColor
 import sys
 import torchnet.meter as meter
 
-def test(csvFile, batchSize, modelPath, gpu_mode):
+
+def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
 
-    test_dset = PileupDataset(csvFile, transformations)
+    test_dset = PileupDataset(test_file, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=batchSize,
+                            batch_size=batch_size,
                             shuffle=False,
                             num_workers=4,
                             pin_memory=gpu_mode # CUDA only
@@ -27,12 +27,12 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    cnn = torch.load(modelPath)
+    model = torch.load(model_path)
     if gpu_mode:
-        cnn = cnn.cuda()
-    cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
+        model = model.cuda()
+    model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    confusion_matrix = meter.ConfusionMeter(3)
+    confusion_matrix = meter.ConfusionMeter(num_classes)
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
@@ -40,11 +40,24 @@ def test(csvFile, batchSize, modelPath, gpu_mode):
             images = images.cuda()
 
         for row in range(images.size(2)):
-            x = images[:, :, row:row + 1, :]
-            ypl = pl[:, row]
-            preds = cnn(x)
+            left = max(0, row - seq_len)
+            right = min(row + seq_len, images.size(2))
+            x = images[:, :, left:right, :]
+            y = labels[:, row]
 
-            confusion_matrix.add(preds.data.squeeze(), ypl.type(torch.LongTensor))
+            # Pad the images if window size doesn't fit
+            if row - left < seq_len:
+                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
+                x = torch.cat((padding, x), 2)
+            if right - row < seq_len:
+                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                x = torch.cat((x, padding), 2)
+            preds = model(x)
+
+            confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
+            # print(y)
+            # print(preds.data.squeeze())
+        print(confusion_matrix.conf)
     print(confusion_matrix.conf)
 
 
@@ -56,7 +69,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.register("type", "bool", lambda v: v.lower() == "true")
     parser.add_argument(
-        "--csv_file",
+        "--test_file",
         type=str,
         required=True,
         help="Testing data description csv file.."
@@ -80,8 +93,15 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
+    parser.add_argument(
+        "--seq_len",
+        type=int,
+        required=False,
+        default=5,
+        help="Sequences to see for each prediction."
+    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    test(FLAGS.csv_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode)
+    test(FLAGS.test_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode, FLAGS.seq_len)
 
 

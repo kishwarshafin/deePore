@@ -47,7 +47,7 @@ class PileupDataset(Dataset):
     def __getitem__(self, index):
 
         img = Image.open(self.X_train[index])
-        img = ImageOps.grayscale(img)
+        # img = ImageOps.grayscale(img)
         if self.transform is not None:
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])
