@@ -113,7 +113,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=16,
                   drop_rate=0.0, column_width=200, seq_len=seq_len)
-
     #LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=2,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len * 2)
