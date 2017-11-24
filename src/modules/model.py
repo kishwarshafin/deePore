@@ -87,7 +87,9 @@ class Model(nn.Module):
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(nChannels[3])
         self.relu = nn.ReLU(inplace=True)
-        self.fc = nn.Linear(nChannels[3] * column_width * seq_len, num_classes)
+        self.fc = nn.Linear(nChannels[3] * column_width * seq_len, column_width * seq_len)
+        self.fc1 = nn.Linear(nChannels[3] * column_width * seq_len, seq_len)
+        self.fc2 = nn.Linear(seq_len, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -108,10 +110,12 @@ class Model(nn.Module):
         # print(out.size())
         out = self.block3.forward(out)
         # print(out.size())
-        out = self.relu(self.bn1(out))
+        # out = self.relu(self.bn1(out))
         out = out.view(out.size(0), -1)
         # print("HERE", out.size())
         out = self.fc(out)
+        out = self.fc1(out)
+        out = self.fc2(out)
         # print(out.size())
         # exit()
         return out
