@@ -15,7 +15,7 @@ class SingleBlock(nn.Module):
         super(SingleBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_channels)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 3), stride=stride, padding=(0, 1), bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
@@ -85,7 +85,7 @@ class Model(nn.Module):
         # 3rd block
         self.block3 = LayerBlock(n, nChannels[2], nChannels[3], block, 1, drop_rate)
         # global average pooling and classifier
-        self.fc = nn.Linear(nChannels[3] * column_width * seq_len, num_classes)
+        self.fc = nn.Linear(nChannels[3] * column_width, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -106,10 +106,15 @@ class Model(nn.Module):
         # print(out.size())
         out = self.block3.forward(out)
         # print(out.size())
+
+        sizes = out.size()
+        out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
+        sizes = out.size()
+        out = out.view(sizes[0], sizes[1] * sizes[2], sizes[3])
+        out = out.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
         # out = self.relu(self.bn1(out))
-        out = out.view(out.size(0), -1)
-        # print("HERE", out.size())
         out = self.fc(out)
+        out = out.transpose(0, 1)
         # print(out.size())
         # exit()
         return out

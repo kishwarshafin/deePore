@@ -98,7 +98,7 @@ def get_window(index, window_size, length):
     return index - window_size, index + window_size
 
 
-def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len):
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len, num_classes=4):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
@@ -111,8 +111,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=8,
-                  drop_rate=0.0, column_width=200, seq_len=seq_len*2)
+    model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=16,
+                  drop_rate=0.0, column_width=200, seq_len=seq_len)
 
     #LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=2,
@@ -142,23 +142,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 labels = labels.cuda()
 
             for row in range(images.size(2)):
+                to_index = min(row+seq_len, images.size(2) - 1)
                 # segmentation of image. Currently using 1xCoverage
-                left = max(0, row-seq_len)
-                right = min(row+seq_len, images.size(2))
-                x = images[:, :, left:right, :]
-                y = labels[:, row]
-
-                # Pad the images if window size doesn't fit
-                if row-left < seq_len:
-                    padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len-(row-left), x.size(3)))
-                    if gpu_mode:
-                        padding = padding.cuda()
-                    x = torch.cat((padding, x), 2)
-                if right-row < seq_len:
-                    padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
-                    if gpu_mode:
-                        padding = padding.cuda()
-                    x = torch.cat((x, padding), 2)
+                x = images[:, :, row:row+to_index, :]
+                y = labels[:, row:row+to_index]
 
                 total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
                 total_variation += torch.sum(y.eq(2)).data[0]
@@ -172,8 +159,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)
-
-                loss = criterion(outputs, y)
+                loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
                 loss.backward()
                 optimizer.step()
 

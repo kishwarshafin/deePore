@@ -57,7 +57,8 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
                     padding = padding.cuda()
                 x = torch.cat((x, padding), 2)
             preds = model(x)
-            # print(preds.size(), y.size())
+            print(preds.size(), y.size())
+            exit()
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
             # print(y)
             # print(preds.data.squeeze())
@@ -101,7 +102,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=5,
+        default=10,
         help="Sequences to see for each prediction."
     )
     FLAGS, unparsed = parser.parse_known_args()
