@@ -111,7 +111,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=16,
+    model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=8,
                   drop_rate=0.0, column_width=200, seq_len=seq_len*2)
 
     #LOCAL

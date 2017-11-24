@@ -86,8 +86,7 @@ class Model(nn.Module):
         self.block3 = LayerBlock(n, nChannels[2], nChannels[3], block, 1, drop_rate)
         # global average pooling and classifier
         self.fc = nn.Linear(nChannels[3] * column_width * seq_len, 500)
-        self.fc1 = nn.Linear(500, 100)
-        self.fc2 = nn.Linear(100, num_classes)
+        self.fc2 = nn.Linear(500, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -113,7 +112,6 @@ class Model(nn.Module):
         # print("HERE", out.size())
         out = self.fc(out)
         out = self.fc1(out)
-        out = self.fc2(out)
         # print(out.size())
         # exit()
         return out
