@@ -48,9 +48,13 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
             # Pad the images if window size doesn't fit
             if row - left < seq_len:
                 padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
+                if gpu_mode:
+                    padding = padding.cuda()
                 x = torch.cat((padding, x), 2)
             if right - row < seq_len:
                 padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                if gpu_mode:
+                    padding = padding.cuda()
                 x = torch.cat((x, padding), 2)
             preds = model(x)
 
