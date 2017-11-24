@@ -16,7 +16,8 @@ from modules.dataset import PileupDataset, TextColor
 import random
 np.set_printoptions(threshold=np.nan)
 
-def validate(data_file, batch_size, gpu_mode, trained_model):
+
+def test(data_file, batch_size, gpu_mode, trained_model,seq_len):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -33,10 +34,10 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
         model = model.cuda()
 
     # Loss and Optimizer
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
 
     # Train the Model
-    sys.stderr.write(TextColor.PURPLE + 'Validation starting\n' + TextColor.END)
+    sys.stderr.write(TextColor.PURPLE + 'Test starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
     for i, (images, labels) in enumerate(validation_loader):
@@ -51,8 +52,27 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
 
         for row in range(images.size(2)):
             # segmentation of image. Currently using 1xCoverage
-            x = images[:, :, row:row + 1, :]
+            left = max(0, row - seq_len)
+            right = min(row + seq_len, images.size(2))
+            x = images[:, :, left:right, :]
             y = labels[:, row]
+
+            # Pad the images if window size doesn't fit
+            if row - left < seq_len:
+                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
+                x = torch.cat((padding, x), 2)
+            if right - row < seq_len:
+                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                x = torch.cat((x, padding), 2)
+
+            total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
+            total_variation += torch.sum(y.eq(2)).data[0]
+            total_variation += torch.sum(y.eq(3)).data[0]
+
+            if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
+                continue
+            elif random.uniform(0, 1) < total_variation / batch_size < 0.02:
+                continue
 
             # Forward + Backward + Optimize
             outputs = model(x)
@@ -62,8 +82,8 @@ def validate(data_file, batch_size, gpu_mode, trained_model):
             total_images += batch_size
             total_loss += loss.data[0]
 
-    print('Validation Loss: ' + str(total_loss/total_images))
-    sys.stderr.write('Validation Loss: ' + str(total_loss/total_images) + "\n")
+    print('Test Loss: ' + str(total_loss/total_images))
+    sys.stderr.write('Test Loss: ' + str(total_loss/total_images) + "\n")
 
 
 def get_window(index, window_size, length):
@@ -128,7 +148,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                     padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
                     x = torch.cat((x, padding), 2)
 
-                total_variation = torch.sum(y.eq(2)).data[0]
+                total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
+                total_variation += torch.sum(y.eq(2)).data[0]
                 total_variation += torch.sum(y.eq(3)).data[0]
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
@@ -152,10 +173,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(avg_loss))
+            test(validation_file, batch_size, gpu_mode, model, seq_len)
 
         # After each epoch do validation
         avg_loss = total_loss / total_images if total_images else 0
-        # validate(validation_file, batch_size, gpu_mode, model)
+        test(validation_file, batch_size, gpu_mode, model, seq_len)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
 
