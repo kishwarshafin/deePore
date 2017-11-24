@@ -57,7 +57,7 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
                     padding = padding.cuda()
                 x = torch.cat((x, padding), 2)
             preds = model(x)
-            print(preds.size(), y.size())
+            # print(preds.size(), y.size())
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
             # print(y)
             # print(preds.data.squeeze())
