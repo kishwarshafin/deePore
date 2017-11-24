@@ -60,9 +60,13 @@ def test(data_file, batch_size, gpu_mode, trained_model,seq_len):
             # Pad the images if window size doesn't fit
             if row - left < seq_len:
                 padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
+                if gpu_mode:
+                    padding = padding.cuda()
                 x = torch.cat((padding, x), 2)
             if right - row < seq_len:
                 padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                if gpu_mode:
+                    padding = padding.cuda()
                 x = torch.cat((x, padding), 2)
 
             total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
@@ -107,8 +111,12 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=4, depth=40, num_classes=4, widen_factor=16,
-                  drop_rate=0.0, column_width=200, seq_len=seq_len*2)
+    # model = Model(input_channels=4, depth=40, num_classes=4, widen_factor=16,
+    #               drop_rate=0.0, column_width=200, seq_len=seq_len*2)
+
+    #LOCAL
+    model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=2,
+                  drop_rate=0.0, column_width=200, seq_len=seq_len * 2)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
@@ -143,9 +151,13 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 # Pad the images if window size doesn't fit
                 if row-left < seq_len:
                     padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len-(row-left), x.size(3)))
+                    if gpu_mode:
+                        padding = padding.cuda()
                     x = torch.cat((padding, x), 2)
                 if right-row < seq_len:
                     padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
+                    if gpu_mode:
+                        padding = padding.cuda()
                     x = torch.cat((x, padding), 2)
 
                 total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
@@ -173,7 +185,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
             print(str(epoch) + "\t" + str(i + 1) + "\t" + str(avg_loss))
-            test(validation_file, batch_size, gpu_mode, model, seq_len)
 
         # After each epoch do validation
         avg_loss = total_loss / total_images if total_images else 0
