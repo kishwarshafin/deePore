@@ -99,18 +99,18 @@ class Model(nn.Module):
 
     def forward(self, x):
         out = self.conv1(x)
-        # print(out.size())
+        print(out.size())
         out = self.block1.forward(out)
-        # print(out.size())
+        print(out.size())
         out = self.block2.forward(out)
-        # print(out.size())
+        print(out.size())
         out = self.block3.forward(out)
-        # print(out.size())
+        print(out.size())
         # out = self.relu(self.bn1(out))
         out = out.view(out.size(0), -1)
-        # print("HERE", out.size())
+        print("HERE", out.size())
         out = self.fc(out)
-        # print(out.size())
+        print(out.size())
         # exit()
         return out
 
