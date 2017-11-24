@@ -85,8 +85,6 @@ class Model(nn.Module):
         # 3rd block
         self.block3 = LayerBlock(n, nChannels[2], nChannels[3], block, 1, drop_rate)
         # global average pooling and classifier
-        self.bn1 = nn.BatchNorm2d(nChannels[3])
-        self.relu = nn.ReLU(inplace=True)
         self.fc = nn.Linear(nChannels[3] * column_width * seq_len, 500)
         self.fc1 = nn.Linear(500, 100)
         self.fc2 = nn.Linear(100, num_classes)
