@@ -34,7 +34,6 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
     model = torch.load(modelPath)
     if gpu_mode:
         model = model.cuda()
-    print(model)
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     seq_len = seq_len
