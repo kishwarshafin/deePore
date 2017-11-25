@@ -62,7 +62,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
             if total_variation == 0 and random.uniform(0, 1) * 100 > 5:
                 continue
-            elif random.uniform(0, 1) < total_variation / batch_size < 0.02:
+            elif random.uniform(0, 1) < total_variation / (batch_size * seq_len) < 0.02:
                 continue
 
             # Forward + Backward + Optimize
@@ -70,7 +70,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # Loss count
-            total_images += batch_size
+            total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
 
     print('Test Loss: ' + str(total_loss/total_images))
@@ -90,7 +90,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=4, depth=28, num_classes=4, widen_factor=16,
+    model = Model(input_channels=4, depth=16, num_classes=4, widen_factor=8,
                   drop_rate=0.0, column_width=50, seq_len=seq_len)
     #LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=2,
@@ -133,7 +133,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
                 if total_variation == 0 and random.uniform(0, 1)*100 > 5:
                     continue
-                elif random.uniform(0, 1) < total_variation/batch_size < 0.02:
+                elif random.uniform(0, 1) < total_variation/(batch_size*seq_len) < 0.5:
                     continue
 
                 # Forward + Backward + Optimize
@@ -144,7 +144,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 optimizer.step()
 
                 # loss count
-                total_images += batch_size
+                total_images += (batch_size*seq_len)
                 total_loss += loss.data[0]
 
             avg_loss = total_loss/total_images if total_images else 0
