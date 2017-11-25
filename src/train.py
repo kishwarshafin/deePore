@@ -17,7 +17,7 @@ import random
 np.set_printoptions(threshold=np.nan)
 
 
-def test(data_file, batch_size, gpu_mode, trained_model,seq_len):
+def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -52,22 +52,11 @@ def test(data_file, batch_size, gpu_mode, trained_model,seq_len):
 
         for row in range(images.size(2)):
             # segmentation of image. Currently using 1xCoverage
-            left = max(0, row - seq_len)
-            right = min(row + seq_len, images.size(2))
-            x = images[:, :, left:right, :]
-            y = labels[:, row]
+            to_index = min(row + seq_len, images.size(2) - 1)
 
-            # Pad the images if window size doesn't fit
-            if row - left < seq_len:
-                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
-                if gpu_mode:
-                    padding = padding.cuda()
-                x = torch.cat((padding, x), 2)
-            if right - row < seq_len:
-                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
-                if gpu_mode:
-                    padding = padding.cuda()
-                x = torch.cat((x, padding), 2)
+            # segmentation of image. Currently using 1xCoverage
+            x = images[:, :, row:row + to_index, :]
+            y = labels[:, row:row + to_index]
 
             total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
             total_variation += torch.sum(y.eq(2)).data[0]
@@ -80,22 +69,13 @@ def test(data_file, batch_size, gpu_mode, trained_model,seq_len):
 
             # Forward + Backward + Optimize
             outputs = model(x)
-            loss = criterion(outputs, y)
-
+            loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
             # loss count
             total_images += batch_size
             total_loss += loss.data[0]
 
     print('Test Loss: ' + str(total_loss/total_images))
     sys.stderr.write('Test Loss: ' + str(total_loss/total_images) + "\n")
-
-
-def get_window(index, window_size, length):
-    if index - window_size < 0:
-        return 0, index + window_size + (window_size-index)
-    elif index + window_size >= length:
-        return index - window_size - (window_size - (length - index)), length
-    return index - window_size, index + window_size
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, seq_len, num_classes=4):
@@ -173,7 +153,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
         # After each epoch do validation
         avg_loss = total_loss / total_images if total_images else 0
-        test(validation_file, batch_size, gpu_mode, model, seq_len)
+        test(validation_file, batch_size, gpu_mode, model, seq_len, num_classes)
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch))
         sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
 
@@ -231,7 +211,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=10,
+        default=5,
         help="Sequence to look at while doing prediction."
     )
     parser.add_argument(
