@@ -116,7 +116,6 @@ class Model(nn.Module):
         # out = self.relu(self.bn1(out))
         out = self.fc(out)
         out = out.transpose(0, 1)
-        print(out.size())
         # exit()
         return out
 
