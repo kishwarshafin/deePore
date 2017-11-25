@@ -12,14 +12,18 @@ import sys
 import torchnet.meter as meter
 
 
-def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
+def most_common(lst):
+    return max(set(lst), key=lst.count)
+
+
+def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     sys.stderr.write(TextColor.PURPLE + 'Loading data\n' + TextColor.END)
 
-    test_dset = PileupDataset(test_file, transformations)
+    test_dset = PileupDataset(csvFile, transformations)
     testloader = DataLoader(test_dset,
-                            batch_size=batch_size,
+                            batch_size=batchSize,
                             shuffle=False,
                             num_workers=4,
                             pin_memory=gpu_mode # CUDA only
@@ -27,27 +31,49 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
 
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = torch.load(model_path)
+    model = torch.load(modelPath)
     if gpu_mode:
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
-    confusion_matrix = meter.ConfusionMeter(num_classes)
+    seq_len = seq_len
+    confusion_tensor = torch.zeros(num_classes, num_classes)
+
     for counter, (images, labels) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
         if gpu_mode:
             images = images.cuda()
+        window = 1
+        prediction_stack = []
+        for row in range(0, images.size(2), 1):
 
-        for row in range(images.size(2)):
-            x = images[:, :, row:row+1, :]
-            y = labels[:, row]
+            if gpu_mode and images.size(0) % 8 != 0:
+                continue
+
+            x = images[:, :, row:row + seq_len, :]
+            # print(x.size())
+            ypl = pl[:, row]
             preds = model(x)
-            confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
-            # print(y)
-            # print(preds.data.squeeze())
-        print(confusion_matrix.conf)
-    print(confusion_matrix.conf)
+            preds = preds.data.topk(1)[1]
+            prediction_stack.append(preds)
+
+            if row+1 >= seq_len:
+                for i in range(images.size(0)):
+                    pr = []
+                    k = seq_len - 1
+                    for j in range(len(prediction_stack)):
+                        pr.append(prediction_stack[j][i][k][0])
+                        k-=1
+                    p = most_common(pr)
+                    t = ypl[i]
+                    confusion_tensor[t][p] += 1
+                prediction_stack.pop(0)
+                window = 1
+            window += 1
+        print(confusion_tensor)
+
+    print(confusion_tensor)
 
 
 
@@ -86,11 +112,11 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=10,
+        default=5,
         help="Sequences to see for each prediction."
     )
     FLAGS, unparsed = parser.parse_known_args()
 
-    test(FLAGS.test_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode, FLAGS.seq_len)
+    test(FLAGS.test_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode, FLAGS.seq_len, num_classes=4)
 
 

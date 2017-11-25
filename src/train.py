@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import Model
+from modules.model import Model, CNN
 from modules.dataset import PileupDataset, TextColor
 import random
 np.set_printoptions(threshold=np.nan)
@@ -52,11 +52,9 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
         for row in range(images.size(2)):
             # segmentation of image. Currently using 1xCoverage
-            to_index = min(row + seq_len, images.size(2) - 1)
-
             # segmentation of image. Currently using 1xCoverage
-            x = images[:, :, row:row + to_index, :]
-            y = labels[:, row:row + to_index]
+            x = images[:, :, row:row+seq_len, :]
+            y = labels[:, row:row+seq_len]
 
             total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
             total_variation += torch.sum(y.eq(2)).data[0]
@@ -70,7 +68,8 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             # Forward + Backward + Optimize
             outputs = model(x)
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
-            # loss count
+
+            # Loss count
             total_images += batch_size
             total_loss += loss.data[0]
 
@@ -95,13 +94,15 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                   drop_rate=0.0, column_width=200, seq_len=seq_len)
     #LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=2,
-    #               drop_rate=0.0, column_width=200, seq_len=seq_len * 2)
+    #               drop_rate=0.0, column_width=50, seq_len=seq_len)
+    # Old CNN model
+    # model = CNN(inChannel=4, outChannel=256, coverageDepth=50, classN=4, window_size=1)
     if gpu_mode:
         model = torch.nn.DataParallel(model).cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -121,10 +122,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 labels = labels.cuda()
 
             for row in range(images.size(2)):
-                to_index = min(row+seq_len, images.size(2) - 1)
+                # to_index = min(row+seq_len, images.size(2) - 1)
                 # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row+to_index, :]
-                y = labels[:, row:row+to_index]
+                x = images[:, :, row:row+seq_len, :]
+                y = labels[:, row:row+seq_len]
 
                 total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
                 total_variation += torch.sum(y.eq(2)).data[0]

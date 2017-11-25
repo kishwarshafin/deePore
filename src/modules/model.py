@@ -98,6 +98,7 @@ class Model(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
+        # print(x.size())
         out = self.conv1(x)
         # print(out.size())
         out = self.block1.forward(out)
@@ -119,10 +120,10 @@ class Model(nn.Module):
         # exit()
         return out
 
-"""
+
 # CNN Model (2 conv layer)
 class CNN(nn.Module):
-    def __init__(self, inChannel=1, outChannel=256, coverageDepth=34, classN=3, window_size=1):
+    def __init__(self, inChannel=4, outChannel=256, coverageDepth=50, classN=4, window_size=1):
         super(CNN, self).__init__()
         self.inChannel = inChannel
         self.outChannel = outChannel
@@ -134,11 +135,11 @@ class CNN(nn.Module):
         self.incpConv1 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
         self.conv0 = nn.Conv2d(inChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
         self.conv1 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
-        self.conv2 = nn.Conv2d(outChannel, outChannel, (1, 3), padding=(0, self.coverageDepth * 3), bias=False,
-                               stride=(1, 3))
+        self.conv2 = nn.Conv2d(outChannel, outChannel, (1, 3), padding=(0, 1), bias=False,
+                               stride=(1, 1))
         self.conv3 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False)
         # -----FCL----- #
-        self.fc1 = nn.Linear(outChannel * coverageDepth * 3 * window_size, 100)
+        self.fc1 = nn.Linear(outChannel * coverageDepth * window_size, 100)
         self.fc2 = nn.Linear(100, 30)
         self.fc3 = nn.Linear(30, self.classN)
         self.fc4 = nn.LogSoftmax()
@@ -148,10 +149,10 @@ class CNN(nn.Module):
         conv1 = self.conv1 if layer != 0 else self.conv0
 
         indataCp = self.batchNorm(incpConv(input_data)) if batch_norm_flag else incpConv(input_data)
-
         convOut1 = self.batchNorm(F.relu(conv1(input_data)))
         convOut2 = self.batchNorm(F.relu(self.conv2(convOut1)))
         convOut3 = self.conv3(convOut2)
+
         x = F.relu(indataCp + convOut3)
         return x
 
@@ -164,6 +165,7 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
+
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
@@ -172,11 +174,11 @@ class CNN(nn.Module):
 
         x = self.fully_connected_layer(x)
         x = self.fc4(x)
-        return x.view(-1, 3)
+        return x.view(-1, self.classN)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
         num_features = 1
         for s in size:
             num_features *= s
-        return num_features"""
+        return num_features
