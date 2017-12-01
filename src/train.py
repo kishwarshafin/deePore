@@ -41,7 +41,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     sys.stderr.write(TextColor.PURPLE + 'Test starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
-    for i, (images, labels) in enumerate(validation_loader):
+    for i, (images, labels, image_name) in enumerate(validation_loader):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
@@ -129,7 +129,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(start_epoch, epoch_limit, 1):
         total_loss = 0
         total_images = 0
-        for i, (images, labels) in enumerate(train_loader):
+        for i, (images, labels, image_name) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:

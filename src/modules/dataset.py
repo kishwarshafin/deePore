@@ -51,7 +51,8 @@ class PileupDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])
-        return img, label
+        pic_name = self.X_train[index]
+        return img, label, pic_name
 
     def __len__(self):
         return len(self.X_train.index)

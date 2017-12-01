@@ -38,8 +38,8 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
 
     seq_len = seq_len
     confusion_tensor = torch.zeros(num_classes, num_classes)
-
-    for counter, (images, labels) in enumerate(testloader):
+    smry = open("out_" + csvFile.split('/')[-1], 'w')
+    for counter, (images, labels, image_name) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
         if gpu_mode:
@@ -53,6 +53,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
 
             x = images[:, :, row:row + seq_len, :]
             # print(x.size())
+            # print(x.size())
             ypl = pl[:, row]
             preds = model(x)
             preds = preds.data.topk(1)[1]
@@ -64,17 +65,20 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
                     k = seq_len - 1
                     for j in range(len(prediction_stack)):
                         pr.append(prediction_stack[j][i][k][0])
-                        k-=1
+                        k -= 1
                     p = most_common(pr)
                     t = ypl[i]
+                    if t != p:
+                        smry.write(str(t) + ',' + str(p) + ',' + str(pr) + ',' + image_name[i] + ',' + str(row) + "\n")
                     confusion_tensor[t][p] += 1
                 prediction_stack.pop(0)
                 window = 1
             window += 1
-        print(confusion_tensor)
+        # print(confusion_tensor)
+        #break
 
+    smry.close()
     print(confusion_tensor)
-
 
 
 if __name__ == '__main__':

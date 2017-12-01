@@ -11,7 +11,7 @@ valy = []
 testx = []
 testy = []
 batch_size = 469
-epoch = 2
+epoch = 5
 with open(file_name, "r") as ins:
     for line in ins:
         line = line.rstrip()
@@ -26,7 +26,7 @@ with open(file_name, "r") as ins:
             #print(val_x, val_y)
         else:
             split_list = line.split('\t')
-            x = int(split_list[0]) * batch_size + int(split_list[1])
+            x = (int(split_list[0]) - 1) * batch_size + int(split_list[1])
             y = float(split_list[2])
             testx.append(x)
             testy.append(y)
@@ -39,9 +39,9 @@ gap_in_ticks = 1
 x_ticks = ()
 for i in range(0, epoch+1, gap_in_ticks):
     x_ticks = x_ticks + (str(i),)
-plt.ylim([0, 0.000002])
+# plt.ylim([0, 0.0000006])
 print(x_ticks)
-plt.xticks(range(0, batch_size * (epoch+1), batch_size*gap_in_ticks), x_ticks)
+plt.xticks(range(1, batch_size * (epoch+1), batch_size*gap_in_ticks), x_ticks)
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 

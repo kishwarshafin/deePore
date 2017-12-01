@@ -33,8 +33,10 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     confusion_matrix = meter.ConfusionMeter(num_classes)
-    for counter, (images, labels) in enumerate(testloader):
+    for counter, (images, labels, image_name) in enumerate(testloader):
         images = Variable(images, volatile=True)
+        print(image_name)
+        exit()
         pl = labels
         if gpu_mode:
             images = images.cuda()
