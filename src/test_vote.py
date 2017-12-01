@@ -74,7 +74,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
                 prediction_stack.pop(0)
                 window = 1
             window += 1
-        # print(confusion_tensor)
+        print(confusion_tensor)
         #break
 
     smry.close()
