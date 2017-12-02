@@ -33,34 +33,20 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     confusion_matrix = meter.ConfusionMeter(num_classes)
-    for counter, (images, labels) in enumerate(testloader):
+    for counter, (images, labels, image_name) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
         if gpu_mode:
             images = images.cuda()
 
         for row in range(images.size(2)):
-            left = max(0, row - seq_len)
-            right = min(row + seq_len, images.size(2))
-            x = images[:, :, left:right, :]
+            x = images[:, :, row:row+1, :]
             y = labels[:, row]
-
-            # Pad the images if window size doesn't fit
-            if row - left < seq_len:
-                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (row - left), x.size(3)))
-                if gpu_mode:
-                    padding = padding.cuda()
-                x = torch.cat((padding, x), 2)
-            if right - row < seq_len:
-                padding = Variable(torch.zeros(x.size(0), x.size(1), seq_len - (right - row), x.size(3)))
-                if gpu_mode:
-                    padding = padding.cuda()
-                x = torch.cat((x, padding), 2)
             preds = model(x)
-            # print(preds.size(), y.size())
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
             # print(y)
             # print(preds.data.squeeze())
+        print('BATCH: ', counter)
         print(confusion_matrix.conf)
     print(confusion_matrix.conf)
 
@@ -101,7 +87,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=5,
+        default=10,
         help="Sequences to see for each prediction."
     )
     FLAGS, unparsed = parser.parse_known_args()
