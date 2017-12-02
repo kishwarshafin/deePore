@@ -130,7 +130,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(start_epoch, epoch_limit, 1):
         total_loss = 0
         total_images = 0
-        start_time = time.time()
+
         for i, (images, labels, image_name) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
@@ -142,6 +142,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
+            start_time = time.time()
             # jump_iterator = random.randint(1, int(math.ceil(seq_len/2)))
             for row in range(images.size(2)):
                 # jump_iterator = random.randint(1, int(math.ceil(seq_len / 2)))
@@ -173,8 +174,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 total_loss += loss.data[0]
 
             avg_loss = total_loss/total_images if total_images else 0
+            end_time = time.time()
             sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1))
             sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
+            sys.stderr.write(TextColor.DARKCYAN + 'Time elasped: ' + str(end_time - start_time) + "\n" + TextColor.END)
             print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
             if (i+1) % 100 == 0:
                 torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
@@ -185,11 +188,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 }, file_name + '_checkpoint_' + str(epoch+1) + "." + str(i+1) + "_params.pkl")
                 sys.stderr.write(TextColor.RED+" MODEL SAVED \n" + TextColor.END)
 
-        end_time = time.time()
+
         avg_loss = total_loss / total_images if total_images else 0
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch+1))
         sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
-        sys.stderr.write(TextColor.DARKCYAN + 'Time elasped: ' + str(end_time-start_time) + "\n" + TextColor.END)
+
 
         torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
         save_checkpoint({
