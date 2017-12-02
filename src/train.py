@@ -14,6 +14,7 @@ import torch.optim as optim
 from modules.model_simple import CNN
 from modules.dataset import PileupDataset, TextColor
 import random
+import time
 import math
 np.set_printoptions(threshold=np.nan)
 
@@ -74,6 +75,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
+        sys.stderr.write('Test batches done:' + str(i+1) + "\n")
 
     print('Test Loss: ' + str(total_loss/total_images))
     sys.stderr.write('Test Loss: ' + str(total_loss/total_images) + "\n")
@@ -128,6 +130,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(start_epoch, epoch_limit, 1):
         total_loss = 0
         total_images = 0
+        start_time = time.time()
         for i, (images, labels, image_name) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
@@ -182,9 +185,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 }, file_name + '_checkpoint_' + str(epoch+1) + "." + str(i+1) + "_params.pkl")
                 sys.stderr.write(TextColor.RED+" MODEL SAVED \n" + TextColor.END)
 
+        end_time = time.time()
         avg_loss = total_loss / total_images if total_images else 0
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch+1))
         sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
+        sys.stderr.write(TextColor.DARKCYAN + 'Time elasped: ' + str(end_time-start_time) + "\n" + TextColor.END)
 
         torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
         save_checkpoint({
