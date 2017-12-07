@@ -65,7 +65,7 @@ class CNN(nn.Module):
         )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, 1000)
+        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth, 1000)
         self.fc2 = nn.Linear(1000, self.classN)
         self.fc3 = nn.LogSoftmax()
 
@@ -84,13 +84,12 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
-        #print(x.size())
         x = self.residual_layer(x, self.identity1, self.cell1)
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
-        # x = self.residual_layer(x, self.identity4, self.cell4)
-        # x = self.residual_layer(x, self.identity5, self.cell5)
-
+        x = self.residual_layer(x, self.identity4, self.cell4)
+        x = self.residual_layer(x, self.identity5, self.cell5)
 
         x = self.fully_connected_layer(x)
+
         return x.view(-1, self.classN)
