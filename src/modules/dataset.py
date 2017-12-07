@@ -43,11 +43,18 @@ class PileupDataset(Dataset):
             labelList = [int(x) for x in str(label)]
             labelLists.append(np.array(labelList, dtype=np.long))
         self.y_train = np.array(labelLists)
+        self.coverage = tmp_df[2]
+        self.window = tmp_df[3]
+        self.channels = tmp_df[4]
 
     def __getitem__(self, index):
         file = self.X_train[index].split('.')[0] + '.png'
         img = Image.open(file)
-        # img = ImageOps.grayscale(img)
+        shape = (self.coverage[index], self.window[index], self.channels[index])
+        np_array_of_img = np.array(img.getdata())
+
+        img = np.reshape(np_array_of_img, shape)
+        img = np.transpose(img, (1, 0, 2))
         if self.transform is not None:
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])

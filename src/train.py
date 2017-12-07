@@ -100,14 +100,14 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = CNN(inChannel=4, coverageDepth=50, classN=4, window_size=1)
+    model = CNN(inChannel=10, coverageDepth=300, classN=4, window_size=1, leak_value=0.1)
     # LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=4,
     #               drop_rate=0.0, column_width=50, seq_len=seq_len)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001)
     start_epoch = 0
 
     if only_model is True:
@@ -132,7 +132,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         total_images = 0
 
         for i, (images, labels, image_name) in enumerate(train_loader):
-
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
@@ -143,18 +142,35 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 images = images.cuda()
                 labels = labels.cuda()
             start_time = time.time()
+
             # jump_iterator = random.randint(1, int(math.ceil(seq_len/2)))
             for row in range(images.size(2)):
                 # jump_iterator = random.randint(1, int(math.ceil(seq_len / 2)))
                 # to_index = min(row+seq_len, images.size(2) - 1)
                 # segmentation of image. Currently using 1xCoverage
+                # M, A, C, G, T, MM, I, D, N
+                # 0, 1, 2, 3, 4, 5,  6, 7, 8
                 x = images[:, :, row:row+1, :]
                 y = labels[:, row]
 
+                # if y.data[0]==3:
+                #      print(image_name, row)
+                #      print(x.size())
+                #
+                #      print('Match', x[:, 0, :, :].data.numpy())
+                #      print('Mismatch', x[:, 5, :, :].data.numpy())
+                #      print('Insert', x[:, 6, :, :].data.numpy())
+                #      print('Delete', x[:, 7, :, :].data.numpy())
+                #      print('None', x[:, 7, :, :].data.numpy())
+                #      exit()
                 total_variation = int(torch.sum(y.eq(0)).data[0]/2)
                 total_variation += torch.sum(y.eq(2)).data[0]
                 total_variation += torch.sum(y.eq(3)).data[0]
                 chance = random.uniform(0, 1)
+                # if y.data[0] == 2:
+                #     print(x.size())
+                #     print(x[:,0,:,:].data.numpy())
+                #     exit()
 
                 if total_variation == 0 and chance > 0.05:
                     continue

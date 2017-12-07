@@ -33,6 +33,9 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
 
     confusion_matrix = meter.ConfusionMeter(num_classes)
+    smry = open("out_" + test_file.split('/')[-1], 'w')
+    correct = 0
+    total_datapoints = 0
     for counter, (images, labels, image_name) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
@@ -44,11 +47,24 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
             y = labels[:, row]
             preds = model(x)
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
+            preds_numpy = preds.data.topk(1)[1].numpy().ravel().tolist()
+            true_label_numpy = y.numpy().ravel().tolist()
+            # print(preds_numpy, true_label_numpy)
+            # print(np.equal(preds_numpy, true_label_numpy))
+            eq = np.equal(preds_numpy, true_label_numpy)
+            mismatch_indices = np.where(eq==False)[0]
+            total_datapoints += int(x.size(0))
+            correct += (eq).sum()
+            # print(mismatch_indices)
+            for index in mismatch_indices:
+                smry.write(str(true_label_numpy[index]) + "," + str(preds_numpy[index]) + "," + image_name[index] + "," + str(row) + "\n")
+            # exit()
             # print(y)
             # print(preds.data.squeeze())
         print('BATCH: ', counter)
         print(confusion_matrix.conf)
     print(confusion_matrix.conf)
+    print('Accuracy: ', correct, total_datapoints, round(correct*100/total_datapoints, 2))
 
 
 
