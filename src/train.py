@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import Model
+from modules.model_simple import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 import time
