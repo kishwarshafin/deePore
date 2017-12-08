@@ -25,7 +25,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     validation_data = PileupDataset(data_file, transformations)
     validation_loader = DataLoader(validation_data,
                                    batch_size=batch_size,
-                                   shuffle=True,
+                                   shuffle=False,
                                    num_workers=16,
                                    pin_memory=gpu_mode
                                    )

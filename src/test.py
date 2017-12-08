@@ -45,7 +45,7 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
         for row in range(images.size(2)):
             x = images[:, :, row:row+1, :]
             y = labels[:, row]
-            preds = model(x)
+            preds = model(x).cpu()
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
             preds_numpy = preds.data.topk(1)[1].numpy().ravel().tolist()
             true_label_numpy = y.numpy().ravel().tolist()
