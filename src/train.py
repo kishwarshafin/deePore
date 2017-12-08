@@ -100,16 +100,16 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=10, depth=16, num_classes=4, widen_factor=4,
-                  drop_rate=0.0, column_width=300, seq_len=1, leak_value=0.1)
-    # model = Model(inChannel=10, coverageDepth=300, classN=4, window_size=1, leak_value=0.1)
+    # model = Model(input_channels=10, depth=16, num_classes=4, widen_factor=4,
+    #               drop_rate=0.0, column_width=300, seq_len=1, leak_value=0.1)
+    model = Model(inChannel=10, coverageDepth=300, classN=4, window_size=1, leak_value=0.1)
     # LOCAL
     # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=4,
     #               drop_rate=0.0, column_width=50, seq_len=seq_len)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.00001, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, momentum=0.9)
     start_epoch = 0
 
     if only_model is True:
