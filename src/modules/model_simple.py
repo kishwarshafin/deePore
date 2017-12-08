@@ -44,29 +44,29 @@ class CNN(nn.Module):
             nn.Conv2d(self.outChannels[3], self.outChannels[3], (1, 5), padding=(0, 2), bias=False, stride=(1, 1)),
         )
 
-        self.identity4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1), bias=False, stride=(1, 1))
-        )
-        self.cell4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[4]),
-            nn.LeakyReLU(self.leak_value),
-            nn.Conv2d(self.outChannels[4], self.outChannels[4], (1, 5), padding=(0, 2), bias=False, stride=(1, 1)),
-        )
-
-        self.identity5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1), bias=False, stride=(1, 1))
-        )
-        self.cell5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[5]),
-            nn.LeakyReLU(self.leak_value),
-            nn.Conv2d(self.outChannels[5], self.outChannels[5], (1, 5), padding=(0, 2), bias=False, stride=(1, 1)),
-        )
+        # self.identity4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1), bias=False, stride=(1, 1))
+        # )
+        # self.cell4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[4]),
+        #     nn.LeakyReLU(self.leak_value),
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[4], (1, 5), padding=(0, 2), bias=False, stride=(1, 1)),
+        # )
+        #
+        # self.identity5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1), bias=False, stride=(1, 1))
+        # )
+        # self.cell5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[5]),
+        #     nn.LeakyReLU(self.leak_value),
+        #     nn.Conv2d(self.outChannels[5], self.outChannels[5], (1, 5), padding=(0, 2), bias=False, stride=(1, 1)),
+        # )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth, 1000)
-        self.fc2 = nn.Linear(1000, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, self.classN)
+        # self.fc2 = nn.Linear(1000, self.classN)
         self.fc3 = nn.LogSoftmax()
 
     def residual_layer(self, input_data, identity, cell):
@@ -78,8 +78,8 @@ class CNN(nn.Module):
     def fully_connected_layer(self, x):
         batch_size = x.size(0)
         x = x.view([batch_size, -1])
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.fc1(x)
+        # x = self.fc2(x)
         x = self.fc3(x)
         return x
 
@@ -87,8 +87,8 @@ class CNN(nn.Module):
         x = self.residual_layer(x, self.identity1, self.cell1)
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
-        x = self.residual_layer(x, self.identity4, self.cell4)
-        x = self.residual_layer(x, self.identity5, self.cell5)
+        # x = self.residual_layer(x, self.identity4, self.cell4)
+        # x = self.residual_layer(x, self.identity5, self.cell5)
 
         x = self.fully_connected_layer(x)
 
