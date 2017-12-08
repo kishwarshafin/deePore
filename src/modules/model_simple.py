@@ -5,9 +5,9 @@ import math
 
 
 # CNN Model (2 conv layer)
-class CNN(nn.Module):
+class Model(nn.Module):
     def __init__(self, inChannel, coverageDepth, classN, window_size, leak_value):
-        super(CNN, self).__init__()
+        super(Model, self).__init__()
         self.inChannel = inChannel
         self.coverageDepth = coverageDepth
         self.classN = classN
