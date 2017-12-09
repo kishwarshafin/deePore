@@ -1,21 +1,17 @@
 import argparse
 import os
 import sys
-from PIL import Image, ImageOps
 import numpy as np
 import torch
-import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+import torchnet.meter as meter
 from modules.model_simple import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 import time
-import math
 np.set_printoptions(threshold=np.nan)
 
 
@@ -37,6 +33,8 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
+
+    confusion_matrix = meter.ConfusionMeter(num_classes)
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Test starting\n' + TextColor.END)
@@ -71,14 +69,18 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             # Forward + Backward + Optimize
             outputs = model(x)
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
+            confusion_matrix.add(outputs.cpu().data.squeeze(), y.data.type(torch.LongTensor))
 
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
-        sys.stderr.write('Test batches done:' + str(i+1) + "\n")
+        sys.stderr.write(TextColor.PURPLE + 'Test batches done: ' + str(i+1) + "\n" + TextColor.END)
 
     print('Test Loss: ' + str(total_loss/total_images))
-    sys.stderr.write('Test Loss: ' + str(total_loss/total_images) + "\n")
+    print('Confusion Matrix: \n', confusion_matrix.conf)
+    sys.stderr.write(TextColor.YELLOW + 'Test Loss: ' + str(total_loss/total_images) + "\n" + TextColor.END)
+    sys.stderr.write(TextColor.GREEN + 'Confusion matrix: \n' + str(confusion_matrix.conf) + "\n" + TextColor.END)
+
 
 
 def save_checkpoint(state, filename):
@@ -210,7 +212,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         avg_loss = total_loss / total_images if total_images else 0
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch+1))
         sys.stderr.write(' Loss: ' + str(avg_loss) + "\n" + TextColor.END)
-
 
         torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
         save_checkpoint({
