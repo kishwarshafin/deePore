@@ -103,6 +103,7 @@ class Model(nn.Module):
         # print(out.size())
         out = self.block1.forward(out)
         # print(out.size())
+
         out = self.block2.forward(out)
         # print(out.size())
         out = self.block3.forward(out)
@@ -113,14 +114,18 @@ class Model(nn.Module):
         sizes = out.size()
         out = out.view(sizes[0], sizes[1] * sizes[2], sizes[3])
         out = out.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
+        # print(out.size())
+
         # out = self.relu(self.bn1(out))
         out = self.fc(out)
+        # print(out.size())
+        # exit()
         out = out.transpose(0, 1)
         # exit()
         return out
 
 
-# CNN Model (2 conv layer)
+'''# CNN Model (2 conv layer)
 class CNN(nn.Module):
     def __init__(self, inChannel=4, outChannel=256, coverageDepth=50, classN=4, window_size=1):
         super(CNN, self).__init__()
@@ -164,7 +169,8 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
-
+        print(x.size())
+        exit()
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
@@ -180,4 +186,4 @@ class CNN(nn.Module):
         num_features = 1
         for s in size:
             num_features *= s
-        return num_features
+        return num_features'''

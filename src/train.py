@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import Model, CNN
+from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 import math
@@ -41,6 +41,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     sys.stderr.write(TextColor.PURPLE + 'Test starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
+    batches_done = 0
     for i, (images, labels, image_name) in enumerate(validation_loader):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
@@ -74,9 +75,10 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
+        sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + "\n"+TextColor.END)
 
     print('Test Loss: ' + str(total_loss/total_images))
-    sys.stderr.write('Test Loss: ' + str(total_loss/total_images) + "\n")
+    sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
 
 
 def save_checkpoint(state, filename):
@@ -98,11 +100,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=4, depth=16, num_classes=4, widen_factor=8,
-                  drop_rate=0.0, column_width=50, seq_len=seq_len)
+    model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
+                  drop_rate=0.0, column_width=300, seq_len=seq_len)
     # LOCAL
-    # model = Model(input_channels=4, depth=10, num_classes=4, widen_factor=4,
-    #               drop_rate=0.0, column_width=50, seq_len=seq_len)
+    # model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
+    #               drop_rate=0.0, column_width=300, seq_len=seq_len)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
@@ -158,7 +160,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 elif chance < 0.02 and total_variation/(batch_size*seq_len) <= 0.02:
                     continue
                 # print("Selected: ", total_variation/(batch_size*seq_len), chance)
-
                 # Forward + Backward + Optimize
                 optimizer.zero_grad()
                 outputs = model(x)

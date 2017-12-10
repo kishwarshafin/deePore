@@ -31,7 +31,7 @@ class PileupDataset(Dataset):
 
     def __init__(self, csv_path, transform=None):
         tmp_df = pd.read_csv(csv_path, header=None)
-        assert tmp_df[0].apply(lambda x: os.path.isfile(x)).all(), \
+        assert tmp_df[0].apply(lambda x: os.path.isfile(x.split('.')[0] + '.png')).all(), \
             "Some images referenced in the CSV file were not found"
 
         self.mlb = MultiLabelBinarizer()
@@ -43,11 +43,18 @@ class PileupDataset(Dataset):
             labelList = [int(x) for x in str(label)]
             labelLists.append(np.array(labelList, dtype=np.long))
         self.y_train = np.array(labelLists)
+        self.coverage = tmp_df[2]
+        self.window = tmp_df[3]
+        self.channels = tmp_df[4]
 
     def __getitem__(self, index):
+        file = self.X_train[index].split('.')[0] + '.png'
+        img = Image.open(file)
+        shape = (self.coverage[index], self.window[index], self.channels[index])
+        np_array_of_img = np.array(img.getdata())
 
-        img = Image.open(self.X_train[index])
-        # img = ImageOps.grayscale(img)
+        img = np.reshape(np_array_of_img, shape)
+        img = np.transpose(img, (1, 0, 2))
         if self.transform is not None:
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])
