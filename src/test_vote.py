@@ -39,6 +39,7 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
     seq_len = seq_len
     confusion_tensor = torch.zeros(num_classes, num_classes)
     smry = open("out_" + csvFile.split('/')[-1], 'w')
+    batch_done = 0
     for counter, (images, labels, image_name) in enumerate(testloader):
         images = Variable(images, volatile=True)
         pl = labels
@@ -74,7 +75,9 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
                 prediction_stack.pop(0)
                 window = 1
             window += 1
-        print(confusion_tensor)
+        batch_done += 1
+        print('Batches done: ', batch_done, ' / ', len(testloader))
+        print(confusion_tensor.type(torch.IntTensor))
         #break
 
     smry.close()
