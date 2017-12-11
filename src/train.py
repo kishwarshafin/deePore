@@ -73,7 +73,9 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
             # Forward + Backward + Optimize
             outputs = model(x)
-            confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
+
+            for each_base in range(seq_len):
+                confusion_matrix.add(outputs[:, each_base, :].data.squeeze(), y[:, each_base].data.type(torch.LongTensor))
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # Loss count
@@ -108,11 +110,11 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     # model = CNN(inChannel=10, outChannel=256, coverageDepth=300, classN=4, window_size=1)
-    model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
-                  drop_rate=0.0, column_width=200, seq_len=seq_len)
+    # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
+    #               drop_rate=0.0, column_width=200, seq_len=seq_len)
     # LOCAL
-    # model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
-    #               drop_rate=0.0, column_width=300, seq_len=seq_len)
+    model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
+                  drop_rate=0.0, column_width=300, seq_len=seq_len)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
