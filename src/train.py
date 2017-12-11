@@ -11,10 +11,12 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import Model
+from modules.model import Model, CNN
 from modules.dataset import PileupDataset, TextColor
 import random
 import math
+import time
+import torchnet.meter as meter
 np.set_printoptions(threshold=np.nan)
 
 
@@ -24,7 +26,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     validation_data = PileupDataset(data_file, transformations)
     validation_loader = DataLoader(validation_data,
                                    batch_size=batch_size,
-                                   shuffle=True,
+                                   shuffle=False,
                                    num_workers=16,
                                    pin_memory=gpu_mode
                                    )
@@ -34,14 +36,15 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     if gpu_mode:
         model = model.cuda()
 
-    # Loss and Optimizer
+    # Loss
     criterion = nn.CrossEntropyLoss()
 
-    # Train the Model
+    # Test the Model
     sys.stderr.write(TextColor.PURPLE + 'Test starting\n' + TextColor.END)
     total_loss = 0
     total_images = 0
     batches_done = 0
+    confusion_matrix = meter.ConfusionMeter(num_classes)
     for i, (images, labels, image_name) in enumerate(validation_loader):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
@@ -70,15 +73,19 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
             # Forward + Backward + Optimize
             outputs = model(x)
+            confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
-        sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + "\n"+TextColor.END)
+        batches_done += 1
+        sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
+
 
     print('Test Loss: ' + str(total_loss/total_images))
     sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
+    sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
 
 
 def save_checkpoint(state, filename):
@@ -100,8 +107,9 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
-                  drop_rate=0.0, column_width=300, seq_len=seq_len)
+    model = CNN(inChannel=10, outChannel=256, coverageDepth=300, classN=4, window_size=1)
+    # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
+    #               drop_rate=0.0, column_width=300, seq_len=seq_len)
     # LOCAL
     # model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
     #               drop_rate=0.0, column_width=300, seq_len=seq_len)
@@ -131,11 +139,13 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(start_epoch, epoch_limit, 1):
         total_loss = 0
         total_images = 0
+
         for i, (images, labels, image_name) in enumerate(train_loader):
 
             # if batch size not distributable among all GPUs then skip
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
+            start_time = time.time()
 
             images = Variable(images)
             labels = Variable(labels)
@@ -172,8 +182,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                 total_loss += loss.data[0]
 
             avg_loss = total_loss/total_images if total_images else 0
-            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1))
+            end_time = time.time()
+            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
             sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
+            sys.stderr.write(TextColor.DARKCYAN + "Time Elapsed: " + str(end_time-start_time) + "\n" + TextColor.END)
             print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
             if (i+1) % 100 == 0:
                 torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
@@ -253,7 +265,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=5,
+        default=1,
         help="Sequence to look at while doing prediction."
     )
     parser.add_argument(

@@ -125,7 +125,7 @@ class Model(nn.Module):
         return out
 
 
-'''# CNN Model (2 conv layer)
+# CNN Model (2 conv layer)
 class CNN(nn.Module):
     def __init__(self, inChannel=4, outChannel=256, coverageDepth=50, classN=4, window_size=1):
         super(CNN, self).__init__()
@@ -152,6 +152,7 @@ class CNN(nn.Module):
         incpConv = self.incpConv1 if layer != 0 else self.incpConv0
         conv1 = self.conv1 if layer != 0 else self.conv0
 
+
         indataCp = self.batchNorm(incpConv(input_data)) if batch_norm_flag else incpConv(input_data)
         convOut1 = self.batchNorm(F.relu(conv1(input_data)))
         convOut2 = self.batchNorm(F.relu(self.conv2(convOut1)))
@@ -169,16 +170,15 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
-        print(x.size())
-        exit()
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)
-        x = self.residual_layer(x, layer=3)
-        x = self.residual_layer(x, layer=4)
+        # x = self.residual_layer(x, layer=3)
+        # x = self.residual_layer(x, layer=4)
 
         x = self.fully_connected_layer(x)
-        x = self.fc4(x)
+        if self.training is False:
+            x = self.fc4(x)
         return x.view(-1, self.classN)
 
     def num_flat_features(self, x):
@@ -186,4 +186,4 @@ class CNN(nn.Module):
         num_features = 1
         for s in size:
             num_features *= s
-        return num_features'''
+        return num_features
