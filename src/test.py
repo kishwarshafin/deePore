@@ -48,7 +48,7 @@ def test(test_file, batch_size, model_path, gpu_mode, seq_len, num_classes=4):
             confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
             # print(y)
             # print(preds.data.squeeze())
-            preds_numpy = preds.data.topk(1)[1].numpy().ravel().tolist()
+            preds_numpy = preds.cpu().data.topk(1)[1].numpy().ravel().tolist()
             true_label_numpy = y.numpy().ravel().tolist()
             # print(preds_numpy, true_label_numpy)
             # print(np.equal(preds_numpy, true_label_numpy))
