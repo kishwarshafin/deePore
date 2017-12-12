@@ -15,14 +15,17 @@ class SingleBlock(nn.Module):
         super(SingleBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_channels)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 3), stride=stride, padding=(0, 1), bias=False)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, groups=in_channels, kernel_size=(1, 3), stride=stride,
+                               padding=(0, 1), bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, groups=out_channels, kernel_size=3, stride=1,
+                               padding=1, bias=False)
         self.drop_rate = drop_rate
         self.equalInOut = (in_channels == out_channels)
-        self.convShortcut = (not self.equalInOut) and nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride,
-                               padding=0, bias=False) or None
+        self.convShortcut = (not self.equalInOut) \
+                            and nn.Conv2d(in_channels, out_channels, groups=in_channels,
+                                          kernel_size=1, stride=stride, padding=0, bias=False) or None
 
     def forward(self, x):
         """
@@ -69,14 +72,16 @@ class Model(nn.Module):
 
     def __init__(self, input_channels, depth, num_classes, widen_factor, drop_rate, column_width, seq_len):
         super(Model, self).__init__()
-        nChannels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
+        extend_channels = input_channels * widen_factor
+        nChannels = [extend_channels, 8 * extend_channels, 16 * extend_channels, 32 * extend_channels]
         assert ((depth - 4) % 6 == 0)
         n = int((depth - 4) / 6)
         block = SingleBlock
         self.nChannels = nChannels[3]
         self.num_classes = num_classes
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(input_channels, nChannels[0], kernel_size=(3, 3), stride=1, padding=(1, 1), bias=False)
+        self.conv1 = nn.Conv2d(input_channels, nChannels[0], groups=input_channels, kernel_size=(1, 1), stride=1,
+                               padding=(1, 1), bias=False)
 
         # 1st block
         self.block1 = LayerBlock(n, nChannels[0], nChannels[1], block, 1, drop_rate)
@@ -135,11 +140,11 @@ class CNN(nn.Module):
         self.classN = classN
         # -----CNN----- #
         self.batchNorm = nn.BatchNorm2d(outChannel)
-        self.incpConv0 = nn.Conv2d(inChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
-        self.incpConv1 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
+        self.incpConv0 = nn.Conv2d(inChannel, outChannel, (1, 1), groups=inChannel, bias=False, stride=(1, 1))
+        self.incpConv1 = nn.Conv2d(outChannel, outChannel, (1, 1), groups=outChannel, bias=False, stride=(1, 1))
         self.conv0 = nn.Conv2d(inChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
         self.conv1 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False, stride=(1, 1))
-        self.conv2 = nn.Conv2d(outChannel, outChannel, (1, 3), padding=(0, 1), bias=False,
+        self.conv2 = nn.Conv2d(outChannel, outChannel, (1, 3), groups=inChannel, padding=(0, 1), bias=False,
                                stride=(1, 1))
         self.conv3 = nn.Conv2d(outChannel, outChannel, (1, 1), bias=False)
         # -----FCL----- #
@@ -170,6 +175,7 @@ class CNN(nn.Module):
         return x
 
     def forward(self, x):
+
         x = self.residual_layer(x, layer=0, batch_norm_flag=True)
         x = self.residual_layer(x, layer=1)
         x = self.residual_layer(x, layer=2)

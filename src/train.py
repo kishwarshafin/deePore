@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model import Model, CNN
+from modules.model_simple import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 import math
@@ -44,7 +44,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
     total_loss = 0
     total_images = 0
     batches_done = 0
-    # confusion_matrix = meter.ConfusionMeter(num_classes)
+    confusion_matrix = meter.ConfusionMeter(num_classes)
     for i, (images, labels, image_name) in enumerate(validation_loader):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
@@ -76,18 +76,20 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 
             # for each_base in range(seq_len):
             #     confusion_matrix.add(outputs[:, each_base, :].data.squeeze(), y[:, each_base].data.type(torch.LongTensor))
+            confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
         batches_done += 1
+        print(confusion_matrix.conf)
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
 
     print('Test Loss: ' + str(total_loss/total_images))
     sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
-    # sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
+    sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
 
 
 def save_checkpoint(state, filename):
@@ -109,9 +111,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    # model = CNN(inChannel=10, outChannel=256, coverageDepth=300, classN=4, window_size=1)
-    model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
-                  drop_rate=0.0, column_width=200, seq_len=seq_len)
+    model = Model(inChannel=10, coverageDepth=200, classN=4, window_size=1, leak_value=0.0)
+    # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
+    # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
+    #               drop_rate=0.0, column_width=200, seq_len=seq_len)
     # LOCAL
     # model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
     #               drop_rate=0.0, column_width=300, seq_len=seq_len)
@@ -267,7 +270,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=5,
+        default=1,
         help="Sequence to look at while doing prediction."
     )
     parser.add_argument(
