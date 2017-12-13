@@ -84,7 +84,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             total_loss += loss.data[0]
         batches_done += 1
         print(confusion_matrix.conf)
-        sys.stderr.write(confusion_matrix.conf)
+        sys.stderr.write(str(confusion_matrix.conf))
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
     print('Test Loss: ' + str(total_loss/total_images))
@@ -122,7 +122,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, momentum=0.05, weight_decay=0.001, nesterov=True)
     start_epoch = 0
 
     if only_model is True:

@@ -28,24 +28,24 @@ class Model(nn.Module):
         )
 
         self.identity2 = nn.Sequential(
-            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 1), groups=4,
+            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 1),# groups=4,
                       bias=False, stride=(1, 1))
         )
         self.cell2 = nn.Sequential(
-            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 1), groups=4,
+            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 1),# groups=4,
                       bias=False, stride=(1, 1)),
             nn.BatchNorm2d(self.outChannels[2]),
             nn.ReLU(),
-            nn.Conv2d(self.outChannels[2], self.outChannels[2], (1, 3), groups=8,
+            nn.Conv2d(self.outChannels[2], self.outChannels[2], (1, 3),# groups=8,
                       padding=(0, 1), bias=False, stride=(1, 1)),
         )
 
         self.identity3 = nn.Sequential(
-            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 1), groups=8,
+            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 1),# groups=8,
                       bias=False, stride=(1, 1))
         )
         self.cell3 = nn.Sequential(
-            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 1), groups=8,
+            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 1),# groups=8,
                       bias=False, stride=(1, 1)),
             nn.BatchNorm2d(self.outChannels[3]),
             nn.ReLU(),
@@ -80,7 +80,7 @@ class Model(nn.Module):
         )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth, 1000)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, 1000)
         self.fc2 = nn.Linear(1000, self.classN)
         self.fc3 = nn.LogSoftmax()
 
@@ -107,8 +107,8 @@ class Model(nn.Module):
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
 
-        x = self.residual_layer(x, self.identity4, self.cell4)
-        x = self.residual_layer(x, self.identity5, self.cell5)
+        # x = self.residual_layer(x, self.identity4, self.cell4)
+        # x = self.residual_layer(x, self.identity5, self.cell5)
 
         x = self.fully_connected_layer(x)
 
