@@ -84,10 +84,11 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             total_loss += loss.data[0]
         batches_done += 1
         print(confusion_matrix.conf)
+        sys.stderr.write(confusion_matrix.conf)
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
-
     print('Test Loss: ' + str(total_loss/total_images))
+    print('Confusion Matrix: \n', confusion_matrix.conf)
     sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
     sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
 
@@ -111,7 +112,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(inChannel=10, coverageDepth=200, classN=4, window_size=1, leak_value=0.0)
+    model = Model(inChannel=10, coverageDepth=300, classN=4, window_size=1, leak_value=0.0)
     # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
@@ -121,7 +122,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001)
     start_epoch = 0
 
     if only_model is True:

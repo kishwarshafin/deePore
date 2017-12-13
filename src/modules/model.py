@@ -73,7 +73,7 @@ class Model(nn.Module):
     def __init__(self, input_channels, depth, num_classes, widen_factor, drop_rate, column_width, seq_len):
         super(Model, self).__init__()
         extend_channels = input_channels * widen_factor
-        nChannels = [extend_channels, 8 * extend_channels, 16 * extend_channels, 32 * extend_channels]
+        nChannels = [input_channels * 4, 8 * extend_channels, 16 * extend_channels, 32 * extend_channels]
         assert ((depth - 4) % 6 == 0)
         n = int((depth - 4) / 6)
         block = SingleBlock
