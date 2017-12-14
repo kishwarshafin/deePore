@@ -12,18 +12,18 @@ class Model(nn.Module):
         self.coverageDepth = coverageDepth
         self.classN = classN
         self.leak_value = leak_value
-        self.outChannels = [self.inChannel, 40, 80, 160, 320, 640]
+        self.outChannels = [self.inChannel, 80, 160, 320, 640, 1280]
         # -----CNN----- #
         self.identity1 = nn.Sequential(
-            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=10,
+            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=self.outChannels[0],
                       bias=False, stride=(1, 1)),
         )
         self.cell1 = nn.Sequential(
-            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=10,
+            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=self.outChannels[0],
                       bias=False, stride=(1, 1)),
             nn.BatchNorm2d(self.outChannels[1]),
             nn.ReLU(),
-            nn.Conv2d(self.outChannels[1], self.outChannels[1], (1, 3), groups=4,
+            nn.Conv2d(self.outChannels[1], self.outChannels[1], (1, 3), groups=int(self.outChannels[1]/self.outChannels[1]),
                       padding=(0, 1), bias=False, stride=(1, 1)),
         )
 
@@ -102,14 +102,12 @@ class Model(nn.Module):
         return x
 
     def forward(self, x):
-
         x = self.residual_layer(x, self.identity1, self.cell1)
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
 
         # x = self.residual_layer(x, self.identity4, self.cell4)
         # x = self.residual_layer(x, self.identity5, self.cell5)
-
         x = self.fully_connected_layer(x)
 
         return x.view(-1, self.classN)
