@@ -102,6 +102,7 @@ class Model(nn.Module):
         return x
 
     def forward(self, x):
+        x = tensor.add(x, 0.001)
         x = self.residual_layer(x, self.identity1, self.cell1)
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
