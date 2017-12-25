@@ -53,35 +53,35 @@ class Model(nn.Module):
                       padding=(1, 1), bias=False, stride=(1, 1)),
         )
 
-        self.identity4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1),# groups=16,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 3),# groups=16,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[4]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[4], self.outChannels[4], (3, 3),# groups=32,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
-
-        self.identity5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1),# groups=32,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 3),# #groups=32,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[5]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[5], self.outChannels[5], (3, 3),# groups=64,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
+        # self.identity4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1),# groups=16,
+        #               bias=False, stride=(1, 1))
+        # )
+        # self.cell4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 3),# groups=16,
+        #               padding=(0, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[4]),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[4], (3, 3),# groups=32,
+        #               padding=(1, 1), bias=False, stride=(1, 1)),
+        # )
+        #
+        # self.identity5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1),# groups=32,
+        #               bias=False, stride=(1, 1))
+        # )
+        # self.cell5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 3),# #groups=32,
+        #               padding=(0, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[5]),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.outChannels[5], self.outChannels[5], (3, 3),# groups=64,
+        #               padding=(1, 1), bias=False, stride=(1, 1)),
+        # )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, self.classN)
-        # self.fc2 = nn.Linear(1000, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, 1000)
+        self.fc2 = nn.Linear(1000, self.classN)
         # self.fc3 = nn.LogSoftmax()
 
     def residual_layer(self, input_data, identity, cell):
@@ -95,8 +95,8 @@ class Model(nn.Module):
         x = x.view([batch_size, -1])
         # print(x.size())
 
-        x = self.fc1(x)
-        # x = self.fc2(x)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         # if self.training is False:
             # x = self.fc3(x)
         return x
