@@ -25,7 +25,7 @@ class Model(nn.Module):
             nn.BatchNorm2d(self.outChannels[1]),
             nn.ReLU(),
             nn.Conv2d(self.outChannels[1], self.outChannels[1], (3, 3), groups=int(self.outChannels[1]/self.outChannels[1]),
-                      padding=(0, 1), bias=False, stride=(1, 1)),
+                      padding=(1, 1), bias=False, stride=(1, 1)),
         )
 
         self.identity2 = nn.Sequential(
@@ -103,6 +103,8 @@ class Model(nn.Module):
         out = self.residual_layer(out, self.identity1, self.cell1)
         out = self.residual_layer(out, self.identity2, self.cell2)
         out = self.residual_layer(out, self.identity3, self.cell3)
+        out = self.residual_layer(out, self.identity4, self.cell4)
+        out = self.residual_layer(out, self.identity5, self.cell5)
 
         sizes = out.size()
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
@@ -110,8 +112,6 @@ class Model(nn.Module):
         out = out.view(sizes[0], sizes[1] * sizes[2], sizes[3])
         out = out.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
-        x = self.residual_layer(x, self.identity4, self.cell4)
-        x = self.residual_layer(x, self.identity5, self.cell5)
         out = self.fully_connected_layer(out)
         out = out.transpose(0, 1)
         return out
