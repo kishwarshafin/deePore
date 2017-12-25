@@ -271,7 +271,7 @@ if __name__ == '__main__':
         "--seq_len",
         type=int,
         required=False,
-        default=1,
+        default=5,
         help="Sequence to look at while doing prediction."
     )
     parser.add_argument(
