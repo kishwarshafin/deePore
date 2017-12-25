@@ -74,23 +74,23 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             # Forward + Backward + Optimize
             outputs = model(x)
 
-            # for each_base in range(seq_len):
-            #     confusion_matrix.add(outputs[:, each_base, :].data.squeeze(), y[:, each_base].data.type(torch.LongTensor))
-            confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
+            #for each_base in range(seq_len):
+                # confusion_matrix.add(outputs[:, each_base, :].data.squeeze(), y[:, each_base].data.type(torch.LongTensor))
+            # confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
             loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
 
             # Loss count
             total_images += (batch_size * seq_len)
             total_loss += loss.data[0]
         batches_done += 1
-        print(confusion_matrix.conf)
-        sys.stderr.write(str(confusion_matrix.conf))
+        # print(confusion_matrix.conf)
+        # sys.stderr.write(str(confusion_matrix.conf))
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
     print('Test Loss: ' + str(total_loss/total_images))
-    print('Confusion Matrix: \n', confusion_matrix.conf)
+    # print('Confusion Matrix: \n', confusion_matrix.conf)
     sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
-    sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
+    # sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
 
 
 def save_checkpoint(state, filename):

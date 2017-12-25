@@ -59,11 +59,11 @@ def test(csvFile, batchSize, modelPath, gpu_mode, seq_len, num_classes):
             preds = model(x)
             preds = preds.data.topk(1)[1]
             prediction_stack.append(preds)
-
             if row+1 >= seq_len:
                 for i in range(images.size(0)):
                     pr = []
                     k = seq_len - 1
+
                     for j in range(len(prediction_stack)):
                         pr.append(prediction_stack[j][i][k][0])
                         k -= 1
