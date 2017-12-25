@@ -12,6 +12,7 @@ class Model(nn.Module):
         self.coverageDepth = coverageDepth
         self.classN = classN
         self.leak_value = leak_value
+        self.seq_len = window_size
         self.outChannels = [self.inChannel, 80, 160, 320, 640, 1280]
         # -----CNN----- #
         self.identity1 = nn.Sequential(
@@ -92,7 +93,7 @@ class Model(nn.Module):
 
     def fully_connected_layer(self, x):
         batch_size = x.size(0)
-        x = x.view([batch_size, -1])
+        x = x.view([batch_size, self.seq_len, -1])
         # print(x.size())
 
         x = F.relu(self.fc1(x))
