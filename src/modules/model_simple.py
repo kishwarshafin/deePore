@@ -12,7 +12,7 @@ class Model(nn.Module):
         self.coverageDepth = coverageDepth
         self.classN = classN
         self.leak_value = leak_value
-        self.outChannels = [self.inChannel, 40, 80, 160, 320, 640]
+        self.outChannels = [self.inChannel, 80, 160, 320, 640, 1280]
         # -----CNN----- #
         self.identity1 = nn.Sequential(
             nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=self.outChannels[0],
@@ -80,7 +80,7 @@ class Model(nn.Module):
         )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth, self.classN)
         # self.fc2 = nn.Linear(1000, self.classN)
         # self.fc3 = nn.LogSoftmax()
 
@@ -107,8 +107,8 @@ class Model(nn.Module):
         x = self.residual_layer(x, self.identity2, self.cell2)
         x = self.residual_layer(x, self.identity3, self.cell3)
 
-        x = self.residual_layer(x, self.identity4, self.cell4)
-        x = self.residual_layer(x, self.identity5, self.cell5)
+        # x = self.residual_layer(x, self.identity4, self.cell4)
+        # x = self.residual_layer(x, self.identity5, self.cell5)
         x = self.fully_connected_layer(x)
 
         return x.view(-1, self.classN)
