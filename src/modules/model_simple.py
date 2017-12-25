@@ -12,7 +12,7 @@ class Model(nn.Module):
         self.coverageDepth = coverageDepth
         self.classN = classN
         self.leak_value = leak_value
-        self.outChannels = [self.inChannel, 80, 160, 320, 640, 1280]
+        self.outChannels = [self.inChannel, 40, 80, 160, 320, 640]
         # -----CNN----- #
         self.identity1 = nn.Sequential(
             nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=self.outChannels[0],
