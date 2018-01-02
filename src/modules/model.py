@@ -109,7 +109,6 @@ class Model(nn.Module):
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
         sizes = out.size()
         out = out.view(sizes[0], sizes[1] * sizes[2] * sizes[3])
-        # out = out.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
-        # print(out.size())
         out = self.fully_connected_layer(out)
+
         return out

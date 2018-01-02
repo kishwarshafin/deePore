@@ -21,7 +21,7 @@ import torchnet.meter as meter
 np.set_printoptions(threshold=np.nan)
 
 
-def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
+def test(data_file, batch_size, gpu_mode, trained_model, num_classes):
     transformations = transforms.Compose([transforms.ToTensor()])
 
     validation_data = PileupDataset(data_file, transformations)
@@ -65,7 +65,6 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
         total_loss += loss.data[0]
 
         batches_done += 1
-        print(confusion_matrix.conf)
         sys.stderr.write(str(confusion_matrix.conf)+"\n")
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
@@ -79,6 +78,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
 def save_checkpoint(state, filename):
     torch.save(state, filename)
 
+
 def get_base_color(base):
     if base == 'A':
         return 250.0
@@ -90,6 +90,7 @@ def get_base_color(base):
         return 30.0
     if base == '*' or 'N':
         return 5.0
+
 
 def get_base_by_color(color):
     if color == 250:
@@ -105,6 +106,7 @@ def get_base_by_color(color):
     if color == 0:
         return ' '
 
+
 def get_match_by_color(color):
     if color == 0:
         return ' '
@@ -112,6 +114,8 @@ def get_match_by_color(color):
         return '.'
     else:
         return 'x' #mismatch
+
+
 def test_image(image, img_name):
     # print(image.size())
     image *= 254
@@ -119,29 +123,28 @@ def test_image(image, img_name):
     # print(ref_match_channel.size())
 
     # THIS TESTS THE BASE COLOR CHANNEL
-    # for column in range(4,ref_match_channel.size(1)):
-    #     str = ""
-    #     for row in range(ref_match_channel.size(0)):
-    #         str = str + get_base_by_color(math.ceil(image[0,row,column]))
-    #     print(str)
+    for column in range(4,ref_match_channel.size(1)):
+        str = ""
+        for row in range(ref_match_channel.size(0)):
+            str += get_base_by_color(math.ceil(image[0,row,column]))
+        print(str)
 
     # THIS TESTS THE MATCH CHANNEL
-    # for column in range(4, ref_match_channel.size(1)):
-    #     str = ""
-    #     for row in range(ref_match_channel.size(0)):
-    #         str = str + get_match_by_color(math.ceil(image[4, row, column]))
-    #     print(str)
+    for column in range(4, ref_match_channel.size(1)):
+        str = ""
+        for row in range(ref_match_channel.size(0)):
+            str += get_match_by_color(math.ceil(image[4, row, column]))
+        print(str)
 
     for column in range(4, ref_match_channel.size(1)):
         str = ""
         for row in range(ref_match_channel.size(0)):
             print(image[1, row, column], end=' ')
         print()
-    exit()
-# TTTTTTGTTTATTGCTTTTATTTCTTCAAAATCAGAGTCCCCTGAACATAAAGCTCATAACAAAATCAGAGTTCCCTGGGAGCATATAGCTCATAACGTTCTTCAGCATCTTCTAATGCAAACACAGTCTGAGCTTGGCAACTGTTTATATAAAAAGGAATTTGTTCAGGAAATATTGTGAAAAGTACAGGGAACAGA
-# TTTTTTGTTTATTGCTTTTATTTCTTCAAAATCAGAGTCCCCTGAACATAAAGCTCATAACAAAATCAGAGTTCCCTGGGAGCATATAGCTCATAACATT
+
+
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode,
-          seq_len, retrain, model_path, only_model, num_classes=2):
+          retrain, model_path, only_model, num_classes=2):
 
     transformations = transforms.Compose([transforms.ToTensor()])
 
@@ -155,8 +158,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    # model = Wide_ResNet(28, 10, 0.3, 2)
-    model = Model(inChannel=5, coverageDepth=200, classN=2, leak_value=0.0)
+    model = Model(inChannel=5, coverageDepth=200, classN=3, leak_value=0.0)
     # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
@@ -192,12 +194,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         start_time = time.time()
         batches_done = 0
         for i, (images, labels, image_name) in enumerate(train_loader):
-            # print(image_name[0], labels[0])
-            # test_image(images[0], image_name)
-
-            # if batch size not distributable among all GPUs then skip
-            # print(images.size())
-            # exit()
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
             start_time = time.time()
@@ -223,20 +219,22 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             total_loss += loss.data[0]
             batches_done += 1
 
-            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + 'Batches done: ' + str(batches_done) + " / " +
-                             str(len(train_loader)) + "\n" + TextColor.END)
-            avg_loss = total_loss / total_images if total_images else 0
-            sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
+            if batches_done % 10 == 0:
+                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(batches_done)
+                                 + " / " + str(len(train_loader)) + "\n" + TextColor.END)
+                avg_loss = total_loss / total_images if total_images else 0
+                sys.stderr.write("Loss: " + str(avg_loss) + "\n")
+                sys.stderr.write("Time Elapsed: " + str(time.time() - start_time) + "\n" + TextColor.END)
 
         avg_loss = total_loss/total_images if total_images else 0
-        end_time = time.time()
 
-        sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
+        sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1)
+                         + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
         sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
-        sys.stderr.write(TextColor.DARKCYAN + "Time Elapsed: " + str(end_time-start_time) + "\n" + TextColor.END)
+        sys.stderr.write("Time Elapsed: " + str(time.time()-start_time) + "\n" + TextColor.END)
         print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
 
-        if (i+1) % 100 == 0:
+        if (i+1) % 1000 == 0:
             torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
             save_checkpoint({
                 'epoch': epoch + 1,
@@ -257,7 +255,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         }, file_name + '_checkpoint_' + str(epoch+1) + "_params.pkl")
 
         # After each epoch do validation
-        test(validation_file, batch_size, gpu_mode, model, seq_len, num_classes)
+        test(validation_file, batch_size, gpu_mode, model, num_classes)
 
     sys.stderr.write(TextColor.PURPLE + 'Finished training\n' + TextColor.END)
 
@@ -311,13 +309,6 @@ if __name__ == '__main__':
         help="Epoch size for training iteration."
     )
     parser.add_argument(
-        "--seq_len",
-        type=int,
-        required=False,
-        default=5,
-        help="Sequence to look at while doing prediction."
-    )
-    parser.add_argument(
         "--model_out",
         type=str,
         required=False,
@@ -357,6 +348,6 @@ if __name__ == '__main__':
 
     directory_control(FLAGS.model_out.rpartition('/')[0]+"/")
     train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size,
-          FLAGS.model_out, FLAGS.gpu_mode, FLAGS.seq_len, FLAGS.retrain, FLAGS.model_path, FLAGS.only_model)
+          FLAGS.model_out, FLAGS.gpu_mode, FLAGS.retrain, FLAGS.model_path, FLAGS.only_model)
 
 
