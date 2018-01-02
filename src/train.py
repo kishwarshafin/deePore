@@ -11,7 +11,8 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model_simple import Model
+from modules.model_simple import Wide_ResNet
+from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
 import random
 import math
@@ -55,50 +56,92 @@ def test(data_file, batch_size, gpu_mode, trained_model, seq_len, num_classes):
             images = images.cuda()
             labels = labels.cuda()
 
-        for row in range(images.size(2)):
-            # segmentation of image. Currently using 1xCoverage
-            # segmentation of image. Currently using 1xCoverage
-            x = images[:, :, row:row+seq_len, :]
-            y = labels[:, row:row+seq_len]
+        # Forward + Backward + Optimize
+        outputs = model(images)
+        confusion_matrix.add(outputs.data.squeeze(), labels.data.type(torch.LongTensor))
+        loss = criterion(outputs.contiguous().view(-1, num_classes), labels.contiguous().view(-1))
+        # Loss count
+        total_images += images.size(0)
+        total_loss += loss.data[0]
 
-            total_variation = int(torch.sum(y.eq(0)).data[0] / 2)
-            total_variation += torch.sum(y.eq(2)).data[0]
-            total_variation += torch.sum(y.eq(3)).data[0]
-            chance = random.uniform(0, 1)
-
-            if total_variation == 0 and chance > 0.05:
-                continue
-            elif chance < 0.02 and total_variation / (batch_size * seq_len) <= 0.02:
-                continue
-
-            # Forward + Backward + Optimize
-            outputs = model(x)
-
-            #for each_base in range(seq_len):
-                # confusion_matrix.add(outputs[:, each_base, :].data.squeeze(), y[:, each_base].data.type(torch.LongTensor))
-            # confusion_matrix.add(outputs.data.squeeze(), y.data.type(torch.LongTensor))
-            loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
-
-            # Loss count
-            total_images += (batch_size * seq_len)
-            total_loss += loss.data[0]
         batches_done += 1
-        # print(confusion_matrix.conf)
-        # sys.stderr.write(str(confusion_matrix.conf))
+        print(confusion_matrix.conf)
+        sys.stderr.write(str(confusion_matrix.conf)+"\n")
         sys.stderr.write(TextColor.BLUE+'Batches done: ' + str(batches_done) + " / " + str(len(validation_loader)) + "\n" + TextColor.END)
 
     print('Test Loss: ' + str(total_loss/total_images))
-    # print('Confusion Matrix: \n', confusion_matrix.conf)
+    print('Confusion Matrix: \n', confusion_matrix.conf)
+
     sys.stderr.write(TextColor.YELLOW+'Test Loss: ' + str(total_loss/total_images) + "\n"+TextColor.END)
-    # sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
+    sys.stderr.write("Confusion Matrix \n: " + str(confusion_matrix.conf) + "\n" + TextColor.END)
 
 
 def save_checkpoint(state, filename):
     torch.save(state, filename)
 
+def get_base_color(base):
+    if base == 'A':
+        return 250.0
+    if base == 'C':
+        return 100.0
+    if base == 'G':
+        return 180.0
+    if base == 'T':
+        return 30.0
+    if base == '*' or 'N':
+        return 5.0
 
+def get_base_by_color(color):
+    if color == 250:
+        return 'A'
+    if color == 100:
+        return 'C'
+    if color == 180:
+        return 'G'
+    if color == 30:
+        return 'T'
+    if color == 5:
+        return '*'
+    if color == 0:
+        return ' '
+
+def get_match_by_color(color):
+    if color == 0:
+        return ' '
+    if color <= 50: #match
+        return '.'
+    else:
+        return 'x' #mismatch
+def test_image(image, img_name):
+    # print(image.size())
+    image *= 254
+    ref_match_channel = image[4,:,:]
+    # print(ref_match_channel.size())
+
+    # THIS TESTS THE BASE COLOR CHANNEL
+    # for column in range(4,ref_match_channel.size(1)):
+    #     str = ""
+    #     for row in range(ref_match_channel.size(0)):
+    #         str = str + get_base_by_color(math.ceil(image[0,row,column]))
+    #     print(str)
+
+    # THIS TESTS THE MATCH CHANNEL
+    # for column in range(4, ref_match_channel.size(1)):
+    #     str = ""
+    #     for row in range(ref_match_channel.size(0)):
+    #         str = str + get_match_by_color(math.ceil(image[4, row, column]))
+    #     print(str)
+
+    for column in range(4, ref_match_channel.size(1)):
+        str = ""
+        for row in range(ref_match_channel.size(0)):
+            print(image[1, row, column], end=' ')
+        print()
+    exit()
+# TTTTTTGTTTATTGCTTTTATTTCTTCAAAATCAGAGTCCCCTGAACATAAAGCTCATAACAAAATCAGAGTTCCCTGGGAGCATATAGCTCATAACGTTCTTCAGCATCTTCTAATGCAAACACAGTCTGAGCTTGGCAACTGTTTATATAAAAAGGAATTTGTTCAGGAAATATTGTGAAAAGTACAGGGAACAGA
+# TTTTTTGTTTATTGCTTTTATTTCTTCAAAATCAGAGTCCCCTGAACATAAAGCTCATAACAAAATCAGAGTTCCCTGGGAGCATATAGCTCATAACATT
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode,
-          seq_len, retrain, model_path, only_model, num_classes=4):
+          seq_len, retrain, model_path, only_model, num_classes=2):
 
     transformations = transforms.Compose([transforms.ToTensor()])
 
@@ -112,7 +155,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(inChannel=8, coverageDepth=200, classN=4, window_size=seq_len, leak_value=0.0)
+    # model = Wide_ResNet(28, 10, 0.3, 2)
+    model = Model(inChannel=5, coverageDepth=200, classN=2, leak_value=0.0)
     # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
@@ -145,10 +189,15 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     for epoch in range(start_epoch, epoch_limit, 1):
         total_loss = 0
         total_images = 0
-
+        start_time = time.time()
+        batches_done = 0
         for i, (images, labels, image_name) in enumerate(train_loader):
+            # print(image_name[0], labels[0])
+            # test_image(images[0], image_name)
 
             # if batch size not distributable among all GPUs then skip
+            # print(images.size())
+            # exit()
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
             start_time = time.time()
@@ -158,49 +207,43 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             if gpu_mode:
                 images = images.cuda()
                 labels = labels.cuda()
-            jump_iterator = random.randint(1, int(math.ceil(seq_len/2)))
-            for row in range(0, images.size(2), jump_iterator):
-                jump_iterator = random.randint(1, int(math.ceil(seq_len / 2)))
-                # to_index = min(row+seq_len, images.size(2) - 1)
-                # segmentation of image. Currently using 1xCoverage
-                x = images[:, :, row:row+seq_len, :]
-                y = labels[:, row:row+seq_len]
 
-                total_variation = int(torch.sum(y.eq(0)).data[0]/2)
-                total_variation += torch.sum(y.eq(2)).data[0]
-                total_variation += torch.sum(y.eq(3)).data[0]
-                chance = random.uniform(0, 1)
+            x = images
+            y = labels
 
-                if total_variation == 0 and chance > 0.05:
-                    continue
-                elif chance < 0.02 and total_variation/(batch_size*seq_len) <= 0.02:
-                    continue
-                # print("Selected: ", total_variation/(batch_size*seq_len), chance)
-                # Forward + Backward + Optimize
-                optimizer.zero_grad()
-                outputs = model(x)
-                loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
-                loss.backward()
-                optimizer.step()
+            # Forward + Backward + Optimize
+            optimizer.zero_grad()
+            outputs = model(x)
+            loss = criterion(outputs.contiguous().view(-1, num_classes), y.contiguous().view(-1))
+            loss.backward()
+            optimizer.step()
 
-                # loss count
-                total_images += (batch_size*seq_len)
-                total_loss += loss.data[0]
+            # loss count
+            total_images += (x.size(0))
+            total_loss += loss.data[0]
+            batches_done += 1
 
-            avg_loss = total_loss/total_images if total_images else 0
-            end_time = time.time()
-            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
+            sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + 'Batches done: ' + str(batches_done) + " / " +
+                             str(len(train_loader)) + "\n" + TextColor.END)
+            avg_loss = total_loss / total_images if total_images else 0
             sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
-            sys.stderr.write(TextColor.DARKCYAN + "Time Elapsed: " + str(end_time-start_time) + "\n" + TextColor.END)
-            print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
-            if (i+1) % 100 == 0:
-                torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
-                save_checkpoint({
-                    'epoch': epoch + 1,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }, file_name + '_checkpoint_' + str(epoch+1) + "." + str(i+1) + "_params.pkl")
-                sys.stderr.write(TextColor.RED+" MODEL SAVED \n" + TextColor.END)
+
+        avg_loss = total_loss/total_images if total_images else 0
+        end_time = time.time()
+
+        sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
+        sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
+        sys.stderr.write(TextColor.DARKCYAN + "Time Elapsed: " + str(end_time-start_time) + "\n" + TextColor.END)
+        print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
+
+        if (i+1) % 100 == 0:
+            torch.save(model, file_name + '_checkpoint_' + str(epoch+1) + '_model.pkl')
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }, file_name + '_checkpoint_' + str(epoch+1) + "." + str(i+1) + "_params.pkl")
+            sys.stderr.write(TextColor.RED+" MODEL SAVED \n" + TextColor.END)
 
         avg_loss = total_loss / total_images if total_images else 0
         sys.stderr.write(TextColor.YELLOW + 'EPOCH: ' + str(epoch+1))

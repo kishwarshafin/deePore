@@ -1,117 +1,85 @@
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
-import math
+from torch.autograd import Variable
 
+import sys
+import numpy as np
 
-# CNN Model (2 conv layer)
-class Model(nn.Module):
-    def __init__(self, inChannel, coverageDepth, classN, window_size, leak_value):
-        super(Model, self).__init__()
-        self.inChannel = inChannel
-        self.coverageDepth = coverageDepth
-        self.classN = classN
-        self.leak_value = leak_value
-        self.seq_len = window_size
-        self.outChannels = [self.inChannel, 40, 80, 160, 320, 640]
-        # -----CNN----- #
-        self.identity1 = nn.Sequential(
-            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 1), groups=self.outChannels[0],
-                      bias=False, stride=(1, 1)),
-        )
-        self.cell1 = nn.Sequential(
-            nn.Conv2d(self.outChannels[0], self.outChannels[1], (1, 3), groups=self.outChannels[0],
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[1]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[1], self.outChannels[1], (3, 3), groups=int(self.outChannels[1]/self.outChannels[1]),
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
+def conv3x3(in_planes, out_planes, stride=1):
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
 
-        self.identity2 = nn.Sequential(
-            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 1),# groups=4,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell2 = nn.Sequential(
-            nn.Conv2d(self.outChannels[1], self.outChannels[2], (1, 3),# groups=4,
-                      padding=(0,1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[2]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[2], self.outChannels[2], (3, 3),# groups=8,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
+def conv_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        init.xavier_uniform(m.weight, gain=np.sqrt(2))
+        init.constant(m.bias, 0)
+    elif classname.find('BatchNorm') != -1:
+        init.constant(m.weight, 1)
+        init.constant(m.bias, 0)
 
-        self.identity3 = nn.Sequential(
-            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 1),# groups=8,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell3 = nn.Sequential(
-            nn.Conv2d(self.outChannels[2], self.outChannels[3], (1, 3),# groups=8,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[3]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[3], self.outChannels[3], (3, 3),# groups=16,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
+class wide_basic(nn.Module):
+    def __init__(self, in_planes, planes, dropout_rate, stride=1):
+        super(wide_basic, self).__init__()
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
 
-        self.identity4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1),# groups=16,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 3),# groups=16,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[4]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[4], self.outChannels[4], (3, 3),# groups=32,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
-
-        self.identity5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1),# groups=32,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 3),# #groups=32,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[5]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[5], self.outChannels[5], (3, 3),# groups=64,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
-
-        # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth, self.classN)
-        # self.fc2 = nn.Linear(1000, self.classN)
-        # self.fc3 = nn.LogSoftmax()
-
-    def residual_layer(self, input_data, identity, cell):
-        ix = identity(input_data)
-        x = cell(input_data)
-        LR = nn.ReLU()
-        return LR(x + ix)
-
-    def fully_connected_layer(self, x):
-        x = self.fc1(x)
-        # x = self.fc2(x)
-        # if self.training is False:
-            # x = self.fc3(x)
-        return x
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != planes:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=True),
+            )
 
     def forward(self, x):
-        out = torch.add(x, 0.001)
-        out = self.residual_layer(out, self.identity1, self.cell1)
-        out = self.residual_layer(out, self.identity2, self.cell2)
-        out = self.residual_layer(out, self.identity3, self.cell3)
-        out = self.residual_layer(out, self.identity4, self.cell4)
-        out = self.residual_layer(out, self.identity5, self.cell5)
+        out = self.dropout(self.conv1(F.relu(self.bn1(x))))
+        out = self.conv2(F.relu(self.bn2(out)))
+        out += self.shortcut(x)
 
-        sizes = out.size()
-        out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
-        sizes = out.size()
-        out = out.view(sizes[0], sizes[1] * sizes[2], sizes[3])
-        out = out.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
+        return out
 
-        out = self.fully_connected_layer(out)
-        out = out.transpose(0, 1)
+
+class Wide_ResNet(nn.Module):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
+        super(Wide_ResNet, self).__init__()
+        self.in_planes = 16
+
+        assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
+        n = int((depth-4)/6)
+        k = widen_factor
+
+        # print('| Wide-Resnet %dx%d' %(depth, k))
+        nStages = [16, 16*k, 32*k, 64*k]
+
+        self.conv1 = conv3x3(5, nStages[0])
+        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
+        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
+        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
+        self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
+        self.linear = nn.Linear(nStages[3] * 9 * 6, num_classes)
+
+    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
+        strides = [stride] + [1]*(num_blocks-1)
+        layers = []
+
+        for stride in strides:
+            layers.append(block(self.in_planes, planes, dropout_rate, stride))
+            self.in_planes = planes
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x *= 254.0
+        out = self.conv1(x)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = F.relu(self.bn1(out))
+        out = F.avg_pool2d(out, 8)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+
         return out
