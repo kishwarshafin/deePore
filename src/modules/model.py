@@ -114,7 +114,7 @@ class Model(nn.Module):
         sizes = out.size()
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
         sizes = out.size()
-        print(sizes())
+        print(sizes)
         out = out.view(sizes[0], sizes[1] * sizes[2] * sizes[3])
         print(out.sizes())
         exit()
