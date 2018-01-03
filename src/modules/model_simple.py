@@ -123,8 +123,8 @@ class Inception3(nn.Module):
         # 2048
         x = self.fc(x)
         # 1000 (num_classes)
-        if self.training and self.aux_logits:
-            return x, aux
+        # if self.training and self.aux_logits:
+        #     return x, aux
         return x
 
 
