@@ -98,12 +98,18 @@ class Model(nn.Module):
         return x
 
     def forward(self, x):
+        print(x.size())
         out = x * 255
         out = self.residual_layer(out, self.identity1, self.cell1)
+        print(out.size())
         out = self.residual_layer(out, self.identity2, self.cell2)
+        print(out.size())
         out = self.residual_layer(out, self.identity3, self.cell3)
+        print(out.size())
         out = self.residual_layer(out, self.identity4, self.cell4)
+        print(out.size())
         out = self.residual_layer(out, self.identity5, self.cell5)
+        print(out.size())
 
         sizes = out.size()
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
