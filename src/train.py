@@ -144,7 +144,7 @@ def test_image(image, img_name):
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode,
-          retrain, model_path, only_model, num_classes=2):
+          retrain, model_path, only_model, num_classes=3):
 
     transformations = transforms.Compose([transforms.ToTensor()])
 
