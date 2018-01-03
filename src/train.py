@@ -163,8 +163,8 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Inception3()
-    # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
+    # model = Inception3()
+    model = Model(inChannel=6, coverageDepth=299, classN=3, leak_value=0.0)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
     # LOCAL
@@ -173,7 +173,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.000001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
     start_epoch = 0
 
     if only_model is True:

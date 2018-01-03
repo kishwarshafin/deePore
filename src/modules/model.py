@@ -80,7 +80,7 @@ class Model(nn.Module):
         )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth * 300, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth * 299, self.classN)
         # self.fc2 = nn.Linear(1000, self.classN)
         # self.fc3 = nn.LogSoftmax()
 
