@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from modules.model_simple import Wide_ResNet
+from modules.model_simple import Inception3
 from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
 import random
@@ -163,7 +163,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(inChannel=6, coverageDepth=200, classN=3, leak_value=0.0)
+    model = Inception3()
     # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
