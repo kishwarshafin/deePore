@@ -115,13 +115,17 @@ def get_match_by_color(color):
     else:
         return 'x' #mismatch
 
+def get_support_by_color(color):
+    if color == 254:
+        return '.'
+    if color == 0:
+        return ' '
+    if color == 152:
+        return 'x'
 
 def test_image(image, img_name):
-    # print(image.size())
     image *= 254
     ref_match_channel = image[4,:,:]
-    # print(ref_match_channel.size())
-
     # THIS TESTS THE BASE COLOR CHANNEL
     for column in range(4,ref_match_channel.size(1)):
         str = ""
@@ -130,17 +134,18 @@ def test_image(image, img_name):
         print(str)
 
     # THIS TESTS THE MATCH CHANNEL
-    for column in range(4, ref_match_channel.size(1)):
-        str = ""
-        for row in range(ref_match_channel.size(0)):
-            str += get_match_by_color(math.ceil(image[4, row, column]))
-        print(str)
+    # for column in range(4, ref_match_channel.size(1)):
+    #     str = ""
+    #     for row in range(ref_match_channel.size(0)):
+    #         str += get_match_by_color(math.ceil(image[4, row, column]))
+    #     print(str)
 
-    for column in range(4, ref_match_channel.size(1)):
-        str = ""
-        for row in range(ref_match_channel.size(0)):
-            print(image[1, row, column], end=' ')
-        print()
+    # for column in range(4, ref_match_channel.size(1)):
+    #     str = ""
+    #     for row in range(ref_match_channel.size(0)):
+    #         # print(math.ceil(image[5, row, column]))
+    #         str += get_support_by_color(math.ceil(image[5, row, column]))
+    #     print(str)
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode,
@@ -158,7 +163,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
-    model = Model(inChannel=5, coverageDepth=200, classN=3, leak_value=0.0)
+    model = Model(inChannel=6, coverageDepth=200, classN=3, leak_value=0.0)
     # model = CNN(inChannel=10, outChannel=250, coverageDepth=300, classN=4, window_size=1)
     # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
     #               drop_rate=0.0, column_width=200, seq_len=seq_len)
@@ -194,6 +199,10 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         start_time = time.time()
         batches_done = 0
         for i, (images, labels, image_name) in enumerate(train_loader):
+            # print(image_name[0], labels[0])
+            # test_image(images[0], image_name)
+            # exit()
+
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
             start_time = time.time()
