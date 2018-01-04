@@ -205,7 +205,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
-            start_time = time.time()
 
             images = Variable(images)
             labels = Variable(labels)
@@ -229,18 +228,19 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             batches_done += 1
 
             if batches_done % 10 == 0:
-                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(batches_done)
-                                 + " / " + str(len(train_loader)))
                 avg_loss = total_loss / total_images if total_images else 0
-                sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
-                sys.stderr.write("Time Elapsed: " + str(time.time() - start_time) + "\n" + TextColor.END)
+                print(str(epoch + 1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
+                sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1) + " Batches done: " + str(batches_done)
+                                 + " / " + str(len(train_loader)) + "\n" + TextColor.END)
+                sys.stderr.write(TextColor.YELLOW + " Loss: " + str(avg_loss) + "\n" + TextColor.END)
+                sys.stderr.write(TextColor.DARKCYAN + "Time Elapsed: " + str(time.time() - start_time) +
+                                 "\n" + TextColor.END)
+                start_time = time.time()
 
         avg_loss = total_loss/total_images if total_images else 0
-
         sys.stderr.write(TextColor.BLUE + "EPOCH: " + str(epoch+1)
-                         + " Batches done: " + str(i+1) + "/" + str(len(train_loader)))
-        sys.stderr.write(" Loss: " + str(avg_loss) + "\n" + TextColor.END)
-        sys.stderr.write("Time Elapsed: " + str(time.time()-start_time) + "\n")
+                         + " Batches done: " + str(i+1) + "/" + str(len(train_loader)) + "\n" + TextColor.END)
+        sys.stderr.write(TextColor.YELLOW + " Loss: " + str(avg_loss) + "\n" + TextColor.END)
         print(str(epoch+1) + "\t" + str(i + 1) + "\t" + str(avg_loss))
 
         if (i+1) % 1000 == 0:
