@@ -80,7 +80,7 @@ class Model(nn.Module):
         )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth * 299, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth * 299, self.classN)
         # self.fc2 = nn.Linear(1000, self.classN)
         # self.fc3 = nn.LogSoftmax()
 
@@ -102,8 +102,8 @@ class Model(nn.Module):
         out = self.residual_layer(out, self.identity1, self.cell1)
         out = self.residual_layer(out, self.identity2, self.cell2)
         out = self.residual_layer(out, self.identity3, self.cell3)
-        out = self.residual_layer(out, self.identity4, self.cell4)
-        out = self.residual_layer(out, self.identity5, self.cell5)
+        # out = self.residual_layer(out, self.identity4, self.cell4)
+        # out = self.residual_layer(out, self.identity5, self.cell5)
 
         sizes = out.size()
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
