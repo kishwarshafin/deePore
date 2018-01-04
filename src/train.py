@@ -173,7 +173,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
     start_epoch = 0
 
     if only_model is True:
