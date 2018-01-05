@@ -53,34 +53,34 @@ class Model(nn.Module):
                       padding=(1, 1), bias=False, stride=(1, 1)),
         )
 
-        self.identity4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1),# groups=16,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell4 = nn.Sequential(
-            nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 3),# groups=16,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[4]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[4], self.outChannels[4], (3, 3),# groups=32,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
-
-        self.identity5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1),# groups=32,
-                      bias=False, stride=(1, 1))
-        )
-        self.cell5 = nn.Sequential(
-            nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 3),# #groups=32,
-                      padding=(0, 1), bias=False, stride=(1, 1)),
-            nn.BatchNorm2d(self.outChannels[5]),
-            nn.ReLU(),
-            nn.Conv2d(self.outChannels[5], self.outChannels[5], (3, 3),# groups=64,
-                      padding=(1, 1), bias=False, stride=(1, 1)),
-        )
+        # self.identity4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 1),# groups=16,
+        #               bias=False, stride=(1, 1))
+        # )
+        # self.cell4 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[3], self.outChannels[4], (1, 3),# groups=16,
+        #               padding=(0, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[4]),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[4], (3, 3),# groups=32,
+        #               padding=(1, 1), bias=False, stride=(1, 1)),
+        # )
+        #
+        # self.identity5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 1),# groups=32,
+        #               bias=False, stride=(1, 1))
+        # )
+        # self.cell5 = nn.Sequential(
+        #     nn.Conv2d(self.outChannels[4], self.outChannels[5], (1, 3),# #groups=32,
+        #               padding=(0, 1), bias=False, stride=(1, 1)),
+        #     nn.BatchNorm2d(self.outChannels[5]),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.outChannels[5], self.outChannels[5], (3, 3),# groups=64,
+        #               padding=(1, 1), bias=False, stride=(1, 1)),
+        # )
 
         # -----FCL----- #
-        self.fc1 = nn.Linear(self.outChannels[5] * coverageDepth * 299, self.classN)
+        self.fc1 = nn.Linear(self.outChannels[3] * coverageDepth * 299, self.classN)
         # self.fc2 = nn.Linear(1000, self.classN)
         # self.fc3 = nn.LogSoftmax()
 
@@ -102,8 +102,8 @@ class Model(nn.Module):
         out = self.residual_layer(out, self.identity1, self.cell1)
         out = self.residual_layer(out, self.identity2, self.cell2)
         out = self.residual_layer(out, self.identity3, self.cell3)
-        out = self.residual_layer(out, self.identity4, self.cell4)
-        out = self.residual_layer(out, self.identity5, self.cell5)
+        # out = self.residual_layer(out, self.identity4, self.cell4)
+        # out = self.residual_layer(out, self.identity5, self.cell5)
 
         sizes = out.size()
         out = out.view(sizes[0], sizes[1], sizes[3], sizes[2])  # Collapse feature dimension
