@@ -32,7 +32,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
     smry = open("out_" + test_file.split('/')[-1], 'w')
-    print(num_classes)
+
     confusion_matrix = meter.ConfusionMeter(num_classes)
     total_datapoints = 0
     correct = 0
@@ -43,7 +43,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
             images = images.cuda()
 
         preds = model(images)
-        print(preds.size(), print(y.size()))
+        # print(preds.size(), print(y.size()))
         confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
 
         preds_numpy = preds.cpu().data.topk(1)[1].numpy().ravel().tolist()
@@ -93,15 +93,8 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
-    parser.add_argument(
-        "--seq_len",
-        type=int,
-        required=False,
-        default=1,
-        help="Sequences to see for each prediction."
-    )
     FLAGS, unparsed = parser.parse_known_args()
 
-    test(FLAGS.test_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode, FLAGS.seq_len)
+    test(FLAGS.test_file, FLAGS.batch_size, FLAGS.model_path, FLAGS.gpu_mode)
 
 
