@@ -32,6 +32,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
     smry = open("out_" + test_file.split('/')[-1], 'w')
+    print(num_classess)
     confusion_matrix = meter.ConfusionMeter(num_classes)
     total_datapoints = 0
     correct = 0
@@ -42,6 +43,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
             images = images.cuda()
 
         preds = model(images)
+        print(preds.size(), print(y.size()))
         confusion_matrix.add(preds.data.squeeze(), y.type(torch.LongTensor))
 
         preds_numpy = preds.cpu().data.topk(1)[1].numpy().ravel().tolist()
