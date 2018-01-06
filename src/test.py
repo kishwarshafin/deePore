@@ -32,7 +32,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
         model = model.cuda()
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
     smry = open("out_" + test_file.split('/')[-1], 'w')
-    print(num_classess)
+    print(num_classes)
     confusion_matrix = meter.ConfusionMeter(num_classes)
     total_datapoints = 0
     correct = 0
