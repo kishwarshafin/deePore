@@ -46,7 +46,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, num_classes):
     total_images = 0
     batches_done = 0
     confusion_matrix = meter.ConfusionMeter(num_classes)
-    for i, (images, labels, image_name) in enumerate(validation_loader):
+    for i, (images, labels, image_name, type_class) in enumerate(validation_loader):
         if gpu_mode is True and images.size(0) % 8 != 0:
             continue
 
