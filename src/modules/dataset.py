@@ -46,10 +46,12 @@ class PileupDataset(Dataset):
         self.coverage = tmp_df[2]
         self.window = tmp_df[3]
         self.channels = tmp_df[4]
+        self.type_str = tmp_df[5]
 
     def __getitem__(self, index):
         file = self.X_train[index].split('.')[0] + '.png'
         img = Image.open(file)
+
         shape = (self.coverage[index], self.window[index], self.channels[index])
         np_array_of_img = np.array(img.getdata())
 
@@ -59,7 +61,8 @@ class PileupDataset(Dataset):
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])
         pic_name = self.X_train[index]
-        return img, label, pic_name
+        type_str = self.type_str[index] # SNP, INDEL
+        return img, label, pic_name, type_str
 
     def __len__(self):
         return len(self.X_train.index)

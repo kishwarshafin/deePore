@@ -198,11 +198,12 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         total_images = 0
         start_time = time.time()
         batches_done = 0
-        for i, (images, labels, image_name) in enumerate(train_loader):
+        for i, (images, labels, image_name, type) in enumerate(train_loader):
             # print(image_name[0], labels[0])
             # test_image(images[0], image_name)
             # exit()
 
+            print(images.size())
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
 

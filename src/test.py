@@ -36,7 +36,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
     confusion_matrix = meter.ConfusionMeter(num_classes)
     total_datapoints = 0
     correct = 0
-    for counter, (images, labels, image_name) in enumerate(testloader):
+    for counter, (images, labels, image_name, type_class) in enumerate(testloader):
         images = Variable(images, volatile=True)
         y = labels
         if gpu_mode:
@@ -55,8 +55,8 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
         correct += (eq).sum()
 
         for index in mismatch_indices:
-            smry.write(
-                str(true_label_numpy[index]) + "," + str(preds_numpy[index]) + "," + image_name[index] + "\n")
+            smry.write(str(true_label_numpy[index]) + "," + str(preds_numpy[index]) + ","
+                       + image_name[index] + "," + type_class[index] + "\n")
         print(confusion_matrix.conf)
     print(confusion_matrix.conf)
 
