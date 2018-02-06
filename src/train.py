@@ -203,7 +203,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
             # test_image(images[0], image_name)
             # exit()
 
-            print(images.size())
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
 
