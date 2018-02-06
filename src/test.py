@@ -21,7 +21,7 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
     testloader = DataLoader(test_dset,
                             batch_size=batch_size,
                             shuffle=False,
-                            num_workers=4,
+                            num_workers=16,
                             pin_memory=gpu_mode # CUDA only
                             )
 
@@ -56,10 +56,9 @@ def test(test_file, batch_size, model_path, gpu_mode, num_classes=3):
 
         for index in mismatch_indices:
             smry.write(str(true_label_numpy[index]) + "," + str(preds_numpy[index]) + ","
-                       + image_name[index] + "," + type_class[index] + "\n")
+                       + image_name[index] + "\n")
         print(confusion_matrix.conf)
     print(confusion_matrix.conf)
-
 
 
 if __name__ == '__main__':
