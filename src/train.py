@@ -182,9 +182,6 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
         start_time = time.time()
         batches_done = 0
         for i, (images, labels, image_name, type) in enumerate(train_loader):
-            # print(image_name[0], labels[0])
-            # test_image(images[0], image_name)
-            # exit()
 
             if gpu_mode is True and images.size(0) % 8 != 0:
                 continue
@@ -268,6 +265,7 @@ def directory_control(file_path):
     except:
         os.mkdir(directory)
 
+
 if __name__ == '__main__':
     '''
     Processes arguments and performs tasks to generate the pileup.
@@ -315,14 +313,9 @@ if __name__ == '__main__':
     )
 
     FLAGS, unparsed = parser.parse_known_args()
-    if FLAGS.retrain:
-        try:
-            os.path.isfile(FLAGS.model_path)
-        except:
-            sys.stderr.write("RETRAIN MODEL FILE DOES NOT EXIST. CHECK model_path PARAMETER.")
 
     directory_control(FLAGS.model_out.rpartition('/')[0]+"/")
-    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size,
-          FLAGS.model_out, FLAGS.gpu_mode, FLAGS.retrain, FLAGS.model_path, FLAGS.only_model)
+
+    train(FLAGS.train_file, FLAGS.validation_file, FLAGS.batch_size, FLAGS.epoch_size, FLAGS.model_out, FLAGS.gpu_mode)
 
 
