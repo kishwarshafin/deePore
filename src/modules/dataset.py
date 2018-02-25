@@ -56,7 +56,7 @@ class PileupDataset(Dataset):
         np_array_of_img = np.array(img.getdata())
 
         img = np.reshape(np_array_of_img, shape)
-        img = np.transpose(img, (1, 0, 2))
+        img = np.transpose(img, (0, 1, 2))
         if self.transform is not None:
             img = self.transform(img)
         label = torch.from_numpy(self.y_train[index])
