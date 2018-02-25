@@ -172,8 +172,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     start_epoch = 0
 
     if gpu_mode:
-        model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(model)
+        model = torch.nn.DataParallel(model).cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
