@@ -149,8 +149,7 @@ def test_image(image, img_name):
     #     print(str)
 
 
-def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode,
-          retrain, model_path, only_model, num_classes=3):
+def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, num_classes=3):
 
     transformations = transforms.Compose([transforms.ToTensor()])
 
@@ -166,32 +165,14 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
 
     # model = Inception3()
     model = Model(inChannel=7, coverageDepth=300, classN=3, leak_value=0.0)
-    # model = Model(input_channels=10, depth=28, num_classes=4, widen_factor=8,
-    #               drop_rate=0.0, column_width=200, seq_len=seq_len)
-    # LOCAL
-    # model = Model(input_channels=10, depth=10, num_classes=4, widen_factor=2,
-    #               drop_rate=0.0, column_width=300, seq_len=seq_len)
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
     start_epoch = 0
 
-    if only_model is True:
-        model = torch.load(model_path)
-        model.train()
-        sys.stderr.write(TextColor.PURPLE + 'RETRAIN MODEL LOADED FROM: ' + model_path + "\n" + TextColor.END)
-    elif retrain is True:
-        checkpoint = torch.load(model_path)
-        start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        sys.stderr.write(TextColor.PURPLE + 'RETRAIN MODEL LOADED FROM: ' + model_path
-                         + ' AT EPOCH: ' + str(start_epoch) + "\n" + TextColor.END)
-
     if gpu_mode:
-        model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(model)
+        model = torch.nn.dataParallel(model).cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
@@ -332,24 +313,7 @@ if __name__ == '__main__':
         default=False,
         help="If true then cuda is on."
     )
-    parser.add_argument(
-        "--retrain",
-        type=bool,
-        default=False,
-        help="Pass if want to retrain a previously trained model."
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        required=False,
-        help="Path to the model to load for retraining purpose"
-    )
-    parser.add_argument(
-        "--only_model",
-        type=bool,
-        default=False,
-        help="Load only model, not the parameters."
-    )
+
     FLAGS, unparsed = parser.parse_known_args()
     if FLAGS.retrain:
         try:
