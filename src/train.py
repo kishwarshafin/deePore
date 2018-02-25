@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 import torch.nn as nn
+import torch.nn.parallel
 import torch.nn.functional as F
 import torch.optim as optim
 from modules.model_simple import Inception3
@@ -189,7 +190,7 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
                          + ' AT EPOCH: ' + str(start_epoch) + "\n" + TextColor.END)
 
     if gpu_mode:
-        model = torch.nn.DistributedDataParallel(model).cuda()
+        model = torch.nn.parallel.DistributedDataParallel(model).cuda()
 
     # Train the Model
     sys.stderr.write(TextColor.PURPLE + 'Training starting\n' + TextColor.END)
