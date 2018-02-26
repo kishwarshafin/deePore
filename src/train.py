@@ -1,21 +1,16 @@
 import argparse
 import os
 import sys
-from PIL import Image, ImageOps
 import numpy as np
 import torch
-import pandas as pd
+from modules.inception import Inception3
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.parallel
-import torch.nn.functional as F
-import torch.optim as optim
-from modules.model_simple import Inception3
-from modules.model import Model
 from modules.dataset import PileupDataset, TextColor
-import random
+import torchvision.models as models
 import math
 import time
 import torchnet.meter as meter
@@ -29,7 +24,7 @@ def test(data_file, batch_size, gpu_mode, trained_model, num_classes):
     validation_loader = DataLoader(validation_data,
                                    batch_size=batch_size,
                                    shuffle=False,
-                                   num_workers=32,
+                                   num_workers=16,
                                    pin_memory=gpu_mode
                                    )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
@@ -124,29 +119,20 @@ def get_support_by_color(color):
     if color == 152:
         return 'x'
 
+
 def test_image(image, img_name):
+    # base_color, base_quality_color, map_quality_color, strand_color, match_color, support_color, cigar_color
     image *= 254
-    ref_match_channel = image[4,:,:]
-    # THIS TESTS THE BASE COLOR CHANNEL
-    for column in range(4,ref_match_channel.size(1)):
-        str = ""
-        for row in range(ref_match_channel.size(0)):
-            str += get_base_by_color(math.ceil(image[0,row,column]))
-        print(str)
+    # print(image.size())
+    for i in range(0,image.size(1)):
+        for j in range(0, image.size(2)):
+            print(get_base_by_color(math.ceil(image[0][i][j])), end='')
+        print()
 
-    # THIS TESTS THE MATCH CHANNEL
-    # for column in range(4, ref_match_channel.size(1)):
-    #     str = ""
-    #     for row in range(ref_match_channel.size(0)):
-    #         str += get_match_by_color(math.ceil(image[4, row, column]))
-    #     print(str)
-
-    # for column in range(4, ref_match_channel.size(1)):
-    #     str = ""
-    #     for row in range(ref_match_channel.size(0)):
-    #         # print(math.ceil(image[5, row, column]))
-    #         str += get_support_by_color(math.ceil(image[5, row, column]))
-    #     print(str)
+    for i in range(0,image.size(1)):
+        for j in range(0, image.size(2)):
+            print(get_support_by_color(math.ceil(image[5][i][j])), end='')
+        print()
 
 
 def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_mode, num_classes=3):
@@ -158,14 +144,13 @@ def train(train_file, validation_file, batch_size, epoch_limit, file_name, gpu_m
     train_loader = DataLoader(train_data_set,
                               batch_size=batch_size,
                               shuffle=True,
-                              num_workers=32,
+                              num_workers=16,
                               pin_memory=gpu_mode
                               )
     sys.stderr.write(TextColor.PURPLE + 'Data loading finished\n' + TextColor.END)
 
     # model = Inception3()
-    model = Model(inChannel=7, coverageDepth=300, classN=3, leak_value=0.0)
-
+    model = Inception3()
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
@@ -267,6 +252,7 @@ def directory_control(file_path):
         os.stat(directory)
     except:
         os.mkdir(directory)
+
 
 if __name__ == '__main__':
     '''
