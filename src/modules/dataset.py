@@ -49,7 +49,7 @@ class PileupDataset(Dataset):
         self.type_str = tmp_df[5]
 
     def __getitem__(self, index):
-        file = self.X_train[index].split('.')[0] + '.png'
+        file = self.X_train[index]
         img = Image.open(file)
 
         shape = (self.coverage[index], self.window[index], self.channels[index])
