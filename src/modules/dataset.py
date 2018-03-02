@@ -31,7 +31,7 @@ class PileupDataset(Dataset):
 
     def __init__(self, csv_path, transform=None):
         tmp_df = pd.read_csv(csv_path, header=None)
-        assert tmp_df[0].apply(lambda x: os.path.isfile(x.split('.')[0] + '.png')).all(), \
+        assert tmp_df[0].apply(lambda x: os.path.isfile(x)).all(), \
             "Some images referenced in the CSV file were not found"
 
         self.mlb = MultiLabelBinarizer()
